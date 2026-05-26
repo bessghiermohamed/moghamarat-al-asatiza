@@ -10,7 +10,6 @@ import {
   ACHIEVEMENTS,
   ENDINGS,
   MERCHANT_ITEMS,
-  CLASS_GLOW_COLORS,
   getInitialResources,
   type Character,
   type GameResources,
@@ -69,17 +68,26 @@ function rand(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+// D20 roll system - inspired by Life in Adventure / D&D
+function rollD20(statValue: number, difficulty: number): { roll: number; modifier: number; total: number; success: boolean; critical: boolean; criticalFail: boolean } {
+  const roll = rand(1, 20);
+  const modifier = Math.floor((statValue - 10) / 2); // +0 at 10, +4 at 18, -4 at 3
+  const total = roll + modifier;
+  const critical = roll === 20;
+  const criticalFail = roll === 1;
+  const success = critical || (!criticalFail && total >= difficulty);
+  return { roll, modifier, total, success, critical, criticalFail };
+}
+
 function statCheck(statValue: number, threshold: number): boolean {
-  const roll = rand(1, 6);
-  return roll + statValue >= threshold;
+  // Convert old-style stat check to D20: stat 1-5 mapped to D20 stat 3-18
+  const d20Stat = 3 + (statValue - 1) * 3; // 1->3, 2->6, 3->9, 4->12, 5->15
+  const difficulty = 8 + threshold * 3; // threshold 2->14, 3->17, 4->20
+  return rollD20(d20Stat, difficulty).success;
 }
 
 function clamp(val: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, val));
-}
-
-function getGlowClass(classAr: string): string {
-  return CLASS_GLOW_COLORS[classAr] || 'shadow-purple-500/50 border-purple-500';
 }
 
 function getRegionName(index: number): string {
@@ -138,10 +146,10 @@ const STAT_NAMES: Record<string, string> = {
 };
 
 const STAT_COLORS: Record<string, string> = {
-  strength: '#ef4444',
+  strength: '#b05050',
   intelligence: '#8b5cf6',
-  luck: '#22c55e',
-  charisma: '#d4a017',
+  luck: '#5a9a5a',
+  charisma: '#8b7355',
   mana: '#3b82f6',
   defense: '#f97316',
 };
@@ -172,7 +180,7 @@ export default function GamePage() {
     setBattleEffect(type);
     if (dmgValue !== undefined) {
       const id = Date.now();
-      setDamageNumbers(prev => [...prev, { id, value: dmgValue, x: 30 + Math.random() * 40, y: 30 + Math.random() * 20, color: type === 'heal' ? '#22c55e' : '#ef4444' }]);
+      setDamageNumbers(prev => [...prev, { id, value: dmgValue, x: 30 + Math.random() * 40, y: 30 + Math.random() * 20, color: type === 'heal' ? '#5a9a5a' : '#b05050' }]);
       setTimeout(() => setDamageNumbers(prev => prev.filter(d => d.id !== id)), 1200);
     }
     setTimeout(() => setBattleEffect(null), 500);
@@ -636,7 +644,7 @@ export default function GamePage() {
     <div className="mb-1">
       <div className="flex justify-between text-xs mb-0.5">
         <span style={{ color }}>{emoji} {label}</span>
-        <span style={{ color: '#f0e6d3' }}>{value}/{max}</span>
+        <span style={{ color: '#c8c8d0' }}>{value}/{max}</span>
       </div>
       <div className="resource-bar">
         <div
@@ -652,30 +660,23 @@ export default function GamePage() {
   // SCREEN: Login
   // ============================================
   const renderLoginScreen = () => (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6" style={{ background: 'linear-gradient(180deg, #1a0a2e 0%, #0d0520 50%, #1a0a2e 100%)' }}>
+    <div className="min-h-screen flex flex-col items-center justify-center p-6" style={{ background: 'linear-gradient(180deg, #0a0a0f 0%, #070709 50%, #0a0a0f 100%)' }}>
       <div className="text-center fade-in max-w-md w-full">
-        <div className="text-7xl mb-6 float-animation">🏰</div>
-        <h1 className="text-4xl md:text-5xl font-bold title-glow mb-3" style={{ color: '#d4a017' }}>
+        <h1 className="text-4xl md:text-5xl font-bold mb-3 font-serif-heading" style={{ color: '#8b7355', letterSpacing: '0.05em' }}>
           مغامرة الأساتذة
         </h1>
-        <p className="text-xl mb-2" style={{ color: '#a890c0' }}>مملكة نور الحكمة</p>
-        <div className="flex justify-center gap-4 text-3xl mb-8">
-          <span className="float-animation" style={{ animationDelay: '0.3s' }}>⚔️</span>
-          <span className="float-animation" style={{ animationDelay: '0.6s' }}>✨</span>
-          <span className="float-animation" style={{ animationDelay: '0.9s' }}>🐉</span>
-          <span className="float-animation" style={{ animationDelay: '1.2s' }}>🔮</span>
-        </div>
+        <p className="text-lg mb-8" style={{ color: '#7a7a8a' }}>مملكة نور الحكمة</p>
 
         <div className="scroll-container p-6 mx-auto">
-          <label className="block text-lg mb-3 font-bold" style={{ color: '#d4a017' }}>
+          <label className="block text-lg mb-3 font-bold" style={{ color: '#8b7355' }}>
             أدخل اسمك الحقيقي
           </label>
           <input
             type="text"
             value={playerName}
             onChange={(e) => setPlayerName(e.target.value)}
-            className="w-full p-3 rounded-lg text-right text-lg outline-none focus:ring-2 focus:ring-[#d4a017]"
-            style={{ background: '#1a0a2e', border: '2px solid #6b3fa0', color: '#f0e6d3' }}
+            className="w-full p-3 rounded-lg text-right text-lg outline-none focus:ring-2 focus:ring-[#8b7355]"
+            style={{ background: '#12121a', border: '2px solid #4a3a6b', color: '#c8c8d0' }}
             placeholder="اسمك هنا..."
             maxLength={30}
             dir="rtl"
@@ -701,13 +702,13 @@ export default function GamePage() {
             disabled={!playerName.trim()}
             style={{ opacity: playerName.trim() ? 1 : 0.5 }}
           >
-            🗡️ ابدأ المغامرة
+            ابدأ المغامرة
           </button>
         </div>
 
-        <div className="mt-8 p-4 rounded-xl text-sm leading-relaxed" style={{ background: 'rgba(45, 27, 78, 0.5)', border: '1px solid #6b3fa0' }}>
-          <p style={{ color: '#a890c0' }}>
-            📜 سُرق <strong style={{ color: '#d4a017' }}>الكتاب الأعظم</strong> من قلعة الظلام على يد حارس خائن.
+        <div className="mt-8 p-4 rounded-xl text-sm leading-relaxed" style={{ background: 'rgba(18, 18, 26, 0.7)', border: '1px solid #4a3a6b' }}>
+          <p style={{ color: '#7a7a8a' }}>
+            📜 سُرق <strong style={{ color: '#8b7355' }}>الكتاب الأعظم</strong> من قلعة الظلام على يد حارس خائن.
             أنت المغامر الوحيد القادر على عبور المناطق الست واستعادته.
             اختر شخصيتك بعناية، وجمع الحلفاء، وواجه الأخطار...
           </p>
@@ -720,12 +721,12 @@ export default function GamePage() {
   // SCREEN: Character Selection
   // ============================================
   const renderCharacterSelectScreen = () => (
-    <div className="min-h-screen pb-20" style={{ background: 'linear-gradient(180deg, #1a0a2e 0%, #0d0520 100%)' }}>
-      <div className="text-center p-4 mb-2" style={{ background: 'linear-gradient(135deg, #2d1b4e, #1a0a2e)', borderBottom: '3px solid #d4a017' }}>
-        <h2 className="text-2xl font-bold title-glow" style={{ color: '#d4a017' }}>
-          ⚔️ اختر شخصيتك
+    <div className="min-h-screen pb-20" style={{ background: 'linear-gradient(180deg, #0a0a0f 0%, #070709 100%)' }}>
+      <div className="text-center p-4 mb-2" style={{ background: 'linear-gradient(135deg, #1a1a28, #12121a)', borderBottom: '1px solid #2a2a3e' }}>
+        <h2 className="text-2xl font-bold font-serif-heading" style={{ color: '#8b7355' }}>
+          اختر شخصيتك
         </h2>
-        <p className="text-sm" style={{ color: '#a890c0' }}>اختر شخصية رئيسية تمثلك وشخصيات جانبية أيضاً</p>
+        <p className="text-sm" style={{ color: '#7a7a8a' }}>اختر شخصية رئيسية تمثلك وشخصيات جانبية أيضاً</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4 max-w-6xl mx-auto">
@@ -736,19 +737,19 @@ export default function GamePage() {
           return (
             <div
               key={char.id}
-              className={`game-card slide-in ${isMain ? 'ring-2 ring-yellow-400 pulse-gold' : ''} ${isSide ? 'ring-1 ring-purple-400' : ''}`}
+              className={`game-card slide-in ${isMain ? 'game-card-selected' : ''} ${isSide ? 'game-card-selected' : ''}`}
               style={{ animationDelay: `${idx * 0.03}s` }}
             >
               <div className="flex items-center gap-3 mb-3">
                 <span className="text-3xl">{char.emoji}</span>
                 <div className="flex-1">
-                  <h3 className="font-bold text-lg" style={{ color: '#d4a017' }}>{char.name}</h3>
+                  <h3 className="font-bold text-lg" style={{ color: '#8b7355' }}>{char.name}</h3>
                   <div className="flex gap-1 flex-wrap">
-                    <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: '#3d2a5c', color: '#a890c0' }}>
+                    <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: '#2a2a3e', color: '#7a7a8a' }}>
                       {char.classAr}
                     </span>
                     {isMain && <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-600 text-yellow-100">⭐ رئيسية</span>}
-                    {isSide && <span className="text-xs px-2 py-0.5 rounded-full bg-purple-600 text-purple-100">📋 جانبية</span>}
+                    {isSide && <span className="text-xs px-2 py-0.5 rounded-full bg-purple-600 text-purple-100">جانبية</span>}
                   </div>
                 </div>
               </div>
@@ -756,15 +757,15 @@ export default function GamePage() {
               {/* Stats */}
               <div className="space-y-1 mb-3">
                 {[
-                  { label: 'القوة', value: char.stats.strength, color: '#ef4444' },
+                  { label: 'القوة', value: char.stats.strength, color: '#b05050' },
                   { label: 'الذكاء', value: char.stats.intelligence, color: '#8b5cf6' },
-                  { label: 'الحظ', value: char.stats.luck, color: '#22c55e' },
-                  { label: 'الكاريزما', value: char.stats.charisma, color: '#d4a017' },
+                  { label: 'الحظ', value: char.stats.luck, color: '#5a9a5a' },
+                  { label: 'الكاريزما', value: char.stats.charisma, color: '#8b7355' },
                   { label: 'المانا', value: char.stats.mana, color: '#3b82f6' },
                   { label: 'الدفاع', value: char.stats.defense, color: '#f97316' },
                 ].map((stat) => (
                   <div key={stat.label} className="flex items-center gap-2 text-xs">
-                    <span className="w-14" style={{ color: '#a890c0' }}>{stat.label}</span>
+                    <span className="w-14" style={{ color: '#7a7a8a' }}>{stat.label}</span>
                     <div className="flex-1 stat-bar">
                       <div className="stat-bar-fill" style={{ width: `${(stat.value / 6) * 100}%`, background: stat.color }} />
                     </div>
@@ -774,12 +775,12 @@ export default function GamePage() {
               </div>
 
               {/* Unique Ability */}
-              <div className="mb-2 p-2 rounded-lg text-xs" style={{ background: 'rgba(107, 63, 160, 0.2)', borderRight: '3px solid #d4a017' }}>
-                <span style={{ color: '#d4a017' }}>✨ {char.uniqueAbilityAr}</span>
+              <div className="mb-2 p-2 rounded-lg text-xs" style={{ background: 'rgba(107, 63, 160, 0.2)', borderRight: '3px solid #8b7355' }}>
+                <span style={{ color: '#8b7355' }}>✨ {char.uniqueAbilityAr}</span>
               </div>
 
               {/* Signature */}
-              <p className="text-xs italic mb-3" style={{ color: '#a890c0' }}>
+              <p className="text-xs italic mb-3" style={{ color: '#7a7a8a' }}>
                 &ldquo;{char.signature}&rdquo;
               </p>
 
@@ -816,7 +817,7 @@ export default function GamePage() {
                     setSave(s);
                   }}
                 >
-                  {isSide ? '❌ إزالة' : '📋 جانبية'}
+                  {isSide ? 'إزالة' : 'جانبية'}
                 </button>
               </div>
             </div>
@@ -828,9 +829,9 @@ export default function GamePage() {
       {confirmMain && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.85)' }}>
           <div className="scroll-container p-6 max-w-sm w-full text-center fade-in">
-            <h3 className="text-xl font-bold mb-4" style={{ color: '#d4a017' }}>⚠️ تأكيد تغيير الشخصية الرئيسية</h3>
-            <p className="mb-4" style={{ color: '#f0e6d3' }}>
-              هل تريد تغيير شخصيتك الرئيسية إلى <strong style={{ color: '#d4a017' }}>{getCharacter(confirmMain)?.name}</strong>؟ هذا القرار نادر التغيير.
+            <h3 className="text-xl font-bold mb-4" style={{ color: '#8b7355' }}>⚠️ تأكيد تغيير الشخصية الرئيسية</h3>
+            <p className="mb-4" style={{ color: '#c8c8d0' }}>
+              هل تريد تغيير شخصيتك الرئيسية إلى <strong style={{ color: '#8b7355' }}>{getCharacter(confirmMain)?.name}</strong>؟ هذا القرار نادر التغيير.
             </p>
             <div className="flex gap-3">
               <button className="fantasy-btn flex-1" onClick={() => {
@@ -848,7 +849,7 @@ export default function GamePage() {
       )}
 
       {/* Continue Button */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 text-center" style={{ background: 'linear-gradient(180deg, transparent, #0d0520 30%)', zIndex: 40 }}>
+      <div className="fixed bottom-0 left-0 right-0 p-4 text-center" style={{ background: 'linear-gradient(180deg, transparent, #0a0a0f 30%)', zIndex: 40 }}>
         <button
           className="fantasy-btn text-lg px-8 py-3"
           onClick={() => {
@@ -860,10 +861,10 @@ export default function GamePage() {
           disabled={!save?.mainCharacterId}
           style={{ opacity: save?.mainCharacterId ? 1 : 0.5 }}
         >
-          🏰 دخول المملكة
+          دخول المملكة
         </button>
         {!save?.mainCharacterId && (
-          <p className="mt-2 text-sm" style={{ color: '#ef4444' }}>يجب اختيار شخصية رئيسية أولاً</p>
+          <p className="mt-2 text-sm" style={{ color: '#b05050' }}>يجب اختيار شخصية رئيسية أولاً</p>
         )}
       </div>
     </div>
@@ -883,42 +884,42 @@ export default function GamePage() {
           <div className="region-bg" style={{ backgroundImage: `url(${currentRegion.backgroundImage})` }} />
         )}
         {/* Header */}
-        <div className="p-4 text-center relative z-10" style={{ background: 'rgba(45, 27, 78, 0.9)', borderBottom: '3px solid #d4a017', boxShadow: '0 4px 15px rgba(212, 160, 23, 0.3)', backdropFilter: 'blur(10px)' }}>
-          <h1 className="text-2xl font-bold title-glow" style={{ color: '#d4a017' }}>
-            🏰 لوحة مملكة نور الحكمة
+        <div className="p-4 text-center relative z-10" style={{ background: 'rgba(18, 18, 26, 0.95)', borderBottom: '1px solid #2a2a3e', boxShadow: '0 4px 15px rgba(212, 160, 23, 0.3)', backdropFilter: 'blur(10px)' }}>
+          <h1 className="text-2xl font-bold font-serif-heading" style={{ color: '#8b7355' }}>
+            لوحة مملكة نور الحكمة
           </h1>
-          <p style={{ color: '#a890c0' }}>مرحباً {save?.name} {char?.emoji}</p>
+          <p style={{ color: '#7a7a8a' }}>مرحباً {save?.name} {char?.emoji}</p>
         </div>
 
         {/* Player Status Card */}
         <div className="p-4 relative z-10">
-          <div className="game-card p-4" style={{ backdropFilter: 'blur(10px)', background: 'rgba(45, 27, 78, 0.85)' }}>
+          <div className="game-card p-4" style={{ backdropFilter: 'blur(10px)', background: 'rgba(18, 18, 26, 0.92)' }}>
             <div className="flex items-center gap-3 mb-3">
               <span className="text-4xl">{char?.emoji}</span>
               <div>
-                <h3 className="font-bold text-lg" style={{ color: '#d4a017' }}>{save?.name}</h3>
-                <p className="text-sm" style={{ color: '#a890c0' }}>{char?.classAr} - {char?.name}</p>
+                <h3 className="font-bold text-lg" style={{ color: '#8b7355' }}>{save?.name}</h3>
+                <p className="text-sm" style={{ color: '#7a7a8a' }}>{char?.classAr} - {char?.name}</p>
               </div>
             </div>
             <div className="grid grid-cols-3 gap-2 text-center text-sm">
-              <div className="p-2 rounded-lg" style={{ background: '#1a0a2e' }}>
-                <div style={{ color: '#22c55e' }}>📍 المنطقة</div>
-                <div className="font-bold" style={{ color: '#f0e6d3' }}>{getRegionName(save?.regionIndex || 0)}</div>
+              <div className="p-2 rounded-lg" style={{ background: '#12121a' }}>
+                <div style={{ color: '#5a9a5a' }}>📍 المنطقة</div>
+                <div className="font-bold" style={{ color: '#c8c8d0' }}>{getRegionName(save?.regionIndex || 0)}</div>
               </div>
-              <div className="p-2 rounded-lg" style={{ background: '#1a0a2e' }}>
-                <div style={{ color: '#d4a017' }}>⭐ النقاط</div>
-                <div className="font-bold" style={{ color: '#f0e6d3' }}>{save?.highestScore}</div>
+              <div className="p-2 rounded-lg" style={{ background: '#12121a' }}>
+                <div style={{ color: '#8b7355' }}>⭐ النقاط</div>
+                <div className="font-bold" style={{ color: '#c8c8d0' }}>{save?.highestScore}</div>
               </div>
-              <div className="p-2 rounded-lg" style={{ background: '#1a0a2e' }}>
-                <div style={{ color: '#6b3fa0' }}>🏅 الإنجازات</div>
-                <div className="font-bold" style={{ color: '#f0e6d3' }}>{save?.achievements.length}/20</div>
+              <div className="p-2 rounded-lg" style={{ background: '#12121a' }}>
+                <div style={{ color: '#4a3a6b' }}>🏅 الإنجازات</div>
+                <div className="font-bold" style={{ color: '#c8c8d0' }}>{save?.achievements.length}/20</div>
               </div>
             </div>
 
             {/* Mini resource bars */}
             {save && (
               <div className="mt-3 space-y-1">
-                <ResourceBar value={save.resources.health} max={save.resources.maxHealth} color="#ef4444" label="الصحة" emoji="❤️" />
+                <ResourceBar value={save.resources.health} max={save.resources.maxHealth} color="#b05050" label="الصحة" emoji="❤️" />
                 <ResourceBar value={save.resources.mana} max={save.resources.maxMana} color="#3b82f6" label="المانا" emoji="💎" />
               </div>
             )}
@@ -927,16 +928,16 @@ export default function GamePage() {
 
         {/* Feed */}
         <div className="px-4 mb-4 relative z-10">
-          <h3 className="text-lg font-bold mb-2" style={{ color: '#d4a017' }}>🔔 آخر الأحداث</h3>
+          <h3 className="text-lg font-bold mb-2" style={{ color: '#8b7355' }}>🔔 آخر الأحداث</h3>
           <div className="space-y-2 max-h-48 overflow-y-auto">
             {feed.length === 0 ? (
-              <p className="text-sm text-center py-4" style={{ color: '#a890c0' }}>لا توجد أحداث بعد</p>
+              <p className="text-sm text-center py-4" style={{ color: '#7a7a8a' }}>لا توجد أحداث بعد</p>
             ) : (
               feed.slice(0, 10).map((item) => (
-                <div key={item.id} className="flex items-center gap-2 p-2 rounded-lg text-sm" style={{ background: '#2d1b4e' }}>
+                <div key={item.id} className="flex items-center gap-2 p-2 rounded-lg text-sm" style={{ background: '#1a1a28' }}>
                   <span>{item.emoji}</span>
-                  <span className="flex-1" style={{ color: '#f0e6d3' }}>{item.text}</span>
-                  <span className="text-xs whitespace-nowrap" style={{ color: '#a890c0' }}>
+                  <span className="flex-1" style={{ color: '#c8c8d0' }}>{item.text}</span>
+                  <span className="text-xs whitespace-nowrap" style={{ color: '#7a7a8a' }}>
                     {Math.floor((Date.now() - item.time) / 60000)}د
                   </span>
                 </div>
@@ -947,7 +948,7 @@ export default function GamePage() {
 
         {/* Rankings */}
         <div className="px-4 mb-4 relative z-10">
-          <h3 className="text-lg font-bold mb-2" style={{ color: '#d4a017' }}>📊 ترتيب المغامرين</h3>
+          <h3 className="text-lg font-bold mb-2" style={{ color: '#8b7355' }}>📊 ترتيب المغامرين</h3>
           <div className="space-y-2">
             {[
               { name: save?.name || '', region: save?.regionIndex || 0, score: save?.highestScore || 0, emoji: char?.emoji || '👤' },
@@ -956,16 +957,16 @@ export default function GamePage() {
               { name: 'نور', region: 2, score: 620, emoji: '✨' },
               { name: 'بوخلوة', region: 1, score: 380, emoji: '🔮' },
             ].sort((a, b) => b.region - a.region || b.score - a.score).map((p, i) => (
-              <div key={i} className="flex items-center gap-3 p-3 rounded-lg" style={{ background: '#2d1b4e' }}>
-                <span className="text-xl font-bold" style={{ color: i === 0 ? '#d4a017' : i === 1 ? '#c0c0c0' : i === 2 ? '#cd7f32' : '#a890c0' }}>
+              <div key={i} className="flex items-center gap-3 p-3 rounded-lg" style={{ background: '#1a1a28' }}>
+                <span className="text-xl font-bold" style={{ color: i === 0 ? '#8b7355' : i === 1 ? '#c0c0c0' : i === 2 ? '#cd7f32' : '#7a7a8a' }}>
                   {i + 1}
                 </span>
                 <span className="text-xl">{p.emoji}</span>
                 <div className="flex-1">
-                  <div className="font-bold" style={{ color: '#f0e6d3' }}>{p.name}</div>
-                  <div className="text-sm" style={{ color: '#a890c0' }}>{getRegionName(p.region)}</div>
+                  <div className="font-bold" style={{ color: '#c8c8d0' }}>{p.name}</div>
+                  <div className="text-sm" style={{ color: '#7a7a8a' }}>{getRegionName(p.region)}</div>
                 </div>
-                <span className="font-bold" style={{ color: '#d4a017' }}>{p.score}</span>
+                <span className="font-bold" style={{ color: '#8b7355' }}>{p.score}</span>
               </div>
             ))}
           </div>
@@ -973,21 +974,21 @@ export default function GamePage() {
 
         {/* Online count */}
         <div className="px-4 mb-4 text-center relative z-10">
-          <span className="text-sm px-4 py-2 rounded-full" style={{ background: '#2d1b4e', color: '#22c55e' }}>
+          <span className="text-sm px-4 py-2 rounded-full" style={{ background: '#1a1a28', color: '#5a9a5a' }}>
             👥 المتصلون الآن: {onlineCount}
           </span>
         </div>
 
         {/* Bottom Nav */}
-        <div className="fixed bottom-0 left-0 right-0 p-3 flex justify-center gap-3 relative z-10" style={{ background: 'rgba(45, 27, 78, 0.95)', borderTop: '1px solid #6b3fa0', backdropFilter: 'blur(10px)' }}>
+        <div className="fixed bottom-0 left-0 right-0 p-3 flex justify-center gap-3 relative z-10" style={{ background: 'rgba(18, 18, 26, 0.95)', borderTop: '1px solid #2a2a3e', backdropFilter: 'blur(10px)' }}>
           <button className="fantasy-btn flex-1" onClick={() => setScreen('gameplay')}>
-            ⚔️ العب
+            العب
           </button>
           <button className="fantasy-btn-secondary flex-1" onClick={() => setScreen('profile')}>
-            👤 ملفي
+            ملفي
           </button>
           <button className="fantasy-btn-secondary flex-1" onClick={() => setScreen('characterSelect')}>
-            🔄 الشخصيات
+            الشخصيات
           </button>
         </div>
       </div>
@@ -1002,37 +1003,37 @@ export default function GamePage() {
     const sideChars = (save?.sideCharacterIds || []).map(id => getCharacter(id)).filter(Boolean) as Character[];
 
     return (
-      <div className="min-h-screen pb-24 p-4" style={{ background: 'linear-gradient(180deg, #1a0a2e 0%, #0d0520 100%)' }}>
-        <h2 className="text-2xl font-bold text-center mb-4 title-glow" style={{ color: '#d4a017' }}>
-          👤 الملف الشخصي
+      <div className="min-h-screen pb-24 p-4" style={{ background: 'linear-gradient(180deg, #0a0a0f 0%, #070709 100%)' }}>
+        <h2 className="text-2xl font-bold text-center mb-4 font-serif-heading" style={{ color: '#8b7355' }}>
+          الملف الشخصي
         </h2>
 
         {/* Main Character */}
         <div className="game-card p-5 mb-4 text-center">
           <span className="text-5xl block mb-2">{char?.emoji}</span>
-          <h3 className="text-xl font-bold" style={{ color: '#d4a017' }}>{save?.name}</h3>
-          <p style={{ color: '#a890c0' }}>{char?.name} - {char?.classAr}</p>
+          <h3 className="text-xl font-bold" style={{ color: '#8b7355' }}>{save?.name}</h3>
+          <p style={{ color: '#7a7a8a' }}>{char?.name} - {char?.classAr}</p>
 
           {/* Resource Bars */}
           {save && (
             <div className="mt-4 space-y-2">
-              <ResourceBar value={save.resources.health} max={save.resources.maxHealth} color="#ef4444" label="الصحة" emoji="❤️" />
+              <ResourceBar value={save.resources.health} max={save.resources.maxHealth} color="#b05050" label="الصحة" emoji="❤️" />
               <ResourceBar value={save.resources.mana} max={save.resources.maxMana} color="#3b82f6" label="المانا" emoji="💎" />
             </div>
           )}
 
           <div className="grid grid-cols-3 gap-2 mt-4 text-sm">
-            <div className="p-2 rounded-lg" style={{ background: '#1a0a2e' }}>
-              <span style={{ color: '#d4a017' }}>💰 ذهب</span>
-              <div className="font-bold" style={{ color: '#f0e6d3' }}>{save?.resources.gold}</div>
+            <div className="p-2 rounded-lg" style={{ background: '#12121a' }}>
+              <span style={{ color: '#8b7355' }}>💰 ذهب</span>
+              <div className="font-bold" style={{ color: '#c8c8d0' }}>{save?.resources.gold}</div>
             </div>
-            <div className="p-2 rounded-lg" style={{ background: '#1a0a2e' }}>
-              <span style={{ color: '#22c55e' }}>⭐ سمعة</span>
-              <div className="font-bold" style={{ color: '#f0e6d3' }}>{save?.resources.reputation}</div>
+            <div className="p-2 rounded-lg" style={{ background: '#12121a' }}>
+              <span style={{ color: '#5a9a5a' }}>⭐ سمعة</span>
+              <div className="font-bold" style={{ color: '#c8c8d0' }}>{save?.resources.reputation}</div>
             </div>
-            <div className="p-2 rounded-lg" style={{ background: '#1a0a2e' }}>
+            <div className="p-2 rounded-lg" style={{ background: '#12121a' }}>
               <span style={{ color: '#8b5cf6' }}>📚 معرفة</span>
-              <div className="font-bold" style={{ color: '#f0e6d3' }}>{save?.resources.knowledge}</div>
+              <div className="font-bold" style={{ color: '#c8c8d0' }}>{save?.resources.knowledge}</div>
             </div>
           </div>
 
@@ -1040,15 +1041,15 @@ export default function GamePage() {
           {char && (
             <div className="mt-4 space-y-1">
               {[
-                { label: 'القوة', key: 'strength', value: getEffectiveStat(char, 'strength', save?.bonusStats || {}), color: '#ef4444' },
+                { label: 'القوة', key: 'strength', value: getEffectiveStat(char, 'strength', save?.bonusStats || {}), color: '#b05050' },
                 { label: 'الذكاء', key: 'intelligence', value: getEffectiveStat(char, 'intelligence', save?.bonusStats || {}), color: '#8b5cf6' },
-                { label: 'الحظ', key: 'luck', value: getEffectiveStat(char, 'luck', save?.bonusStats || {}), color: '#22c55e' },
-                { label: 'الكاريزما', key: 'charisma', value: getEffectiveStat(char, 'charisma', save?.bonusStats || {}), color: '#d4a017' },
+                { label: 'الحظ', key: 'luck', value: getEffectiveStat(char, 'luck', save?.bonusStats || {}), color: '#5a9a5a' },
+                { label: 'الكاريزما', key: 'charisma', value: getEffectiveStat(char, 'charisma', save?.bonusStats || {}), color: '#8b7355' },
                 { label: 'المانا', key: 'mana', value: getEffectiveStat(char, 'mana', save?.bonusStats || {}), color: '#3b82f6' },
                 { label: 'الدفاع', key: 'defense', value: getEffectiveStat(char, 'defense', save?.bonusStats || {}), color: '#f97316' },
               ].map((stat) => (
                 <div key={stat.key} className="flex items-center gap-2 text-sm">
-                  <span className="w-14 text-right" style={{ color: '#a890c0' }}>{stat.label}</span>
+                  <span className="w-14 text-right" style={{ color: '#7a7a8a' }}>{stat.label}</span>
                   <div className="flex-1 stat-bar">
                     <div className="stat-bar-fill" style={{ width: `${(stat.value / 8) * 100}%`, background: stat.color }} />
                   </div>
@@ -1061,19 +1062,19 @@ export default function GamePage() {
 
         {/* Allies */}
         <div className="game-card p-4 mb-4">
-          <h3 className="font-bold mb-2" style={{ color: '#d4a017' }}>👥 الحلفاء ({save?.allies.length || 0}/3)</h3>
+          <h3 className="font-bold mb-2" style={{ color: '#8b7355' }}>👥 الحلفاء ({save?.allies.length || 0}/3)</h3>
           {save?.allies.length === 0 ? (
-            <p className="text-sm" style={{ color: '#a890c0' }}>لا يوجد حلفاء بعد - ستجدهم في رحلتك!</p>
+            <p className="text-sm" style={{ color: '#7a7a8a' }}>لا يوجد حلفاء بعد - ستجدهم في رحلتك!</p>
           ) : (
             <div className="space-y-2">
               {save?.allies.map((ally) => {
                 const allyChar = getCharacter(ally.characterId);
                 return (
-                  <div key={ally.characterId} className="flex items-center gap-2 p-2 rounded-lg" style={{ background: '#1a0a2e' }}>
+                  <div key={ally.characterId} className="flex items-center gap-2 p-2 rounded-lg" style={{ background: '#12121a' }}>
                     <span className="text-2xl">{allyChar?.emoji}</span>
                     <div className="flex-1">
-                      <div className="font-bold text-sm" style={{ color: '#f0e6d3' }}>{ally.name}</div>
-                      <div className="text-xs" style={{ color: '#22c55e' }}>{ally.passiveAbilityAr}</div>
+                      <div className="font-bold text-sm" style={{ color: '#c8c8d0' }}>{ally.name}</div>
+                      <div className="text-xs" style={{ color: '#5a9a5a' }}>{ally.passiveAbilityAr}</div>
                     </div>
                   </div>
                 );
@@ -1085,12 +1086,12 @@ export default function GamePage() {
         {/* Side Characters */}
         {sideChars.length > 0 && (
           <div className="game-card p-4 mb-4">
-            <h3 className="font-bold mb-2" style={{ color: '#d4a017' }}>📋 الشخصيات الجانبية</h3>
+            <h3 className="font-bold mb-2" style={{ color: '#8b7355' }}>📋 الشخصيات الجانبية</h3>
             <div className="flex gap-2 flex-wrap">
               {sideChars.map(c => (
-                <div key={c.id} className="flex items-center gap-1 p-2 rounded-lg text-sm" style={{ background: '#1a0a2e' }}>
+                <div key={c.id} className="flex items-center gap-1 p-2 rounded-lg text-sm" style={{ background: '#12121a' }}>
                   <span>{c.emoji}</span>
-                  <span style={{ color: '#f0e6d3' }}>{c.name}</span>
+                  <span style={{ color: '#c8c8d0' }}>{c.name}</span>
                 </div>
               ))}
             </div>
@@ -1099,7 +1100,7 @@ export default function GamePage() {
 
         {/* Achievements */}
         <div className="game-card p-4 mb-4">
-          <h3 className="font-bold mb-3" style={{ color: '#d4a017' }}>🏅 الإنجازات ({save?.achievements.length || 0}/20)</h3>
+          <h3 className="font-bold mb-3" style={{ color: '#8b7355' }}>🏅 الإنجازات ({save?.achievements.length || 0}/20)</h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {ACHIEVEMENTS.map(ach => {
               const unlocked = save?.achievements.includes(ach.id);
@@ -1107,11 +1108,11 @@ export default function GamePage() {
                 <div
                   key={ach.id}
                   className={`p-2 rounded-lg text-center text-xs transition-all ${unlocked ? '' : 'opacity-30 grayscale'}`}
-                  style={{ background: '#1a0a2e', border: unlocked ? '1px solid #d4a017' : '1px solid #333' }}
+                  style={{ background: '#12121a', border: unlocked ? '1px solid #8b7355' : '1px solid #333' }}
                 >
                   <span className="text-xl block">{ach.emoji}</span>
-                  <div className="font-bold mt-1" style={{ color: unlocked ? '#d4a017' : '#555' }}>{ach.name}</div>
-                  <div style={{ color: unlocked ? '#a890c0' : '#333' }}>{ach.description}</div>
+                  <div className="font-bold mt-1" style={{ color: unlocked ? '#8b7355' : '#555' }}>{ach.name}</div>
+                  <div style={{ color: unlocked ? '#7a7a8a' : '#333' }}>{ach.description}</div>
                 </div>
               );
             })}
@@ -1120,18 +1121,18 @@ export default function GamePage() {
 
         {/* Game Stats */}
         <div className="game-card p-4 mb-4 text-sm">
-          <h3 className="font-bold mb-3" style={{ color: '#d4a017' }}>📊 إحصائيات اللعبة</h3>
-          <div className="space-y-2" style={{ color: '#f0e6d3' }}>
-            <div className="flex justify-between"><span>أعلى نقاط:</span><span style={{ color: '#d4a017' }}>{save?.highestScore}</span></div>
-            <div className="flex justify-between"><span>مرات الإكمال:</span><span style={{ color: '#d4a017' }}>{save?.completions}</span></div>
-            <div className="flex justify-between"><span>أحداث مكتملة:</span><span style={{ color: '#d4a017' }}>{save?.totalEventsCompleted}</span></div>
-            <div className="flex justify-between"><span>معارك بالهروب:</span><span style={{ color: '#d4a017' }}>{save?.battlesFled}</span></div>
-            <div className="flex justify-between"><span>معارك بالمفاوضة:</span><span style={{ color: '#d4a017' }}>{save?.battlesNegotiated}</span></div>
-            <div className="flex justify-between"><span>ألغاز محلولة:</span><span style={{ color: '#d4a017' }}>{save?.puzzlesSolved}</span></div>
-            <div className="flex justify-between"><span>مرات الموت:</span><span style={{ color: '#ef4444' }}>{save?.deathCount}</span></div>
+          <h3 className="font-bold mb-3" style={{ color: '#8b7355' }}>📊 إحصائيات اللعبة</h3>
+          <div className="space-y-2" style={{ color: '#c8c8d0' }}>
+            <div className="flex justify-between"><span>أعلى نقاط:</span><span style={{ color: '#8b7355' }}>{save?.highestScore}</span></div>
+            <div className="flex justify-between"><span>مرات الإكمال:</span><span style={{ color: '#8b7355' }}>{save?.completions}</span></div>
+            <div className="flex justify-between"><span>أحداث مكتملة:</span><span style={{ color: '#8b7355' }}>{save?.totalEventsCompleted}</span></div>
+            <div className="flex justify-between"><span>معارك بالهروب:</span><span style={{ color: '#8b7355' }}>{save?.battlesFled}</span></div>
+            <div className="flex justify-between"><span>معارك بالمفاوضة:</span><span style={{ color: '#8b7355' }}>{save?.battlesNegotiated}</span></div>
+            <div className="flex justify-between"><span>ألغاز محلولة:</span><span style={{ color: '#8b7355' }}>{save?.puzzlesSolved}</span></div>
+            <div className="flex justify-between"><span>مرات الموت:</span><span style={{ color: '#b05050' }}>{save?.deathCount}</span></div>
             <div className="flex justify-between">
               <span>وقت اللعب:</span>
-              <span style={{ color: '#d4a017' }}>
+              <span style={{ color: '#8b7355' }}>
                 {save?.startTime ? formatTime(Date.now() - save.startTime) : '0د'}
               </span>
             </div>
@@ -1139,9 +1140,9 @@ export default function GamePage() {
         </div>
 
         {/* Back Button */}
-        <div className="fixed bottom-0 left-0 right-0 p-3" style={{ background: 'linear-gradient(180deg, transparent, #1a0a2e 30%)', zIndex: 40 }}>
+        <div className="fixed bottom-0 left-0 right-0 p-3" style={{ background: 'linear-gradient(180deg, transparent, #12121a 30%)', zIndex: 40 }}>
           <button className="fantasy-btn w-full" onClick={() => setScreen('kingdom')}>
-            🏰 العودة للمملكة
+            العودة للمملكة
           </button>
         </div>
       </div>
@@ -1167,23 +1168,23 @@ export default function GamePage() {
             <div className="region-bg" style={{ backgroundImage: `url(${region.backgroundImage})` }} />
           )}
           <div className="event-card-visual p-6 max-w-md w-full text-center fade-in relative z-10">
-            <span className="text-5xl block mb-4 float-animation">🎉</span>
-            <h2 className="text-2xl font-bold mb-2" style={{ color: '#d4a017' }}>منطقة مكتملة!</h2>
-            <p className="mb-2" style={{ color: '#22c55e' }}>لقد أكملت {region?.name} {region?.emoji}</p>
-            <p className="mb-4" style={{ color: '#f0e6d3' }}>لديك {statPoints} نقطة إحصائية. اختر أين تضعها:</p>
+            <span className="text-4xl block mb-4 fade-in">■</span>
+            <h2 className="text-2xl font-bold mb-2 font-serif-heading" style={{ color: '#8b7355' }}>منطقة مكتملة</h2>
+            <p className="mb-2" style={{ color: '#5a9a5a' }}>لقد أكملت {region?.name} {region?.emoji}</p>
+            <p className="mb-4" style={{ color: '#c8c8d0' }}>لديك {statPoints} نقطة إحصائية. اختر أين تضعها:</p>
 
             {char && [
-              { key: 'strength', label: 'القوة', value: getEffectiveStat(char, 'strength', save.bonusStats), color: '#ef4444' },
+              { key: 'strength', label: 'القوة', value: getEffectiveStat(char, 'strength', save.bonusStats), color: '#b05050' },
               { key: 'intelligence', label: 'الذكاء', value: getEffectiveStat(char, 'intelligence', save.bonusStats), color: '#8b5cf6' },
-              { key: 'luck', label: 'الحظ', value: getEffectiveStat(char, 'luck', save.bonusStats), color: '#22c55e' },
-              { key: 'charisma', label: 'الكاريزما', value: getEffectiveStat(char, 'charisma', save.bonusStats), color: '#d4a017' },
+              { key: 'luck', label: 'الحظ', value: getEffectiveStat(char, 'luck', save.bonusStats), color: '#5a9a5a' },
+              { key: 'charisma', label: 'الكاريزما', value: getEffectiveStat(char, 'charisma', save.bonusStats), color: '#8b7355' },
               { key: 'mana', label: 'المانا', value: getEffectiveStat(char, 'mana', save.bonusStats), color: '#3b82f6' },
               { key: 'defense', label: 'الدفاع', value: getEffectiveStat(char, 'defense', save.bonusStats), color: '#f97316' },
             ].map(stat => (
               <button
                 key={stat.key}
                 className="w-full text-right p-3 rounded-lg mb-2 flex justify-between items-center transition-all hover:scale-[1.02]"
-                style={{ background: '#1a0a2e', border: `2px solid ${stat.color}`, color: '#f0e6d3' }}
+                style={{ background: '#12121a', border: `2px solid ${stat.color}`, color: '#c8c8d0' }}
                 onClick={() => applyStatPoint(stat.key)}
               >
                 <span>{stat.label} ({stat.value})</span>
@@ -1193,7 +1194,7 @@ export default function GamePage() {
 
             {statPoints <= 0 && (
               <button className="fantasy-btn w-full mt-4" onClick={() => setStatPointMode(false)}>
-                ➡️ المتابعة
+                المتابعة
               </button>
             )}
           </div>
@@ -1210,9 +1211,9 @@ export default function GamePage() {
           )}
           <div className="event-card-visual p-6 max-w-md w-full text-center fade-in relative z-10">
             <span className="text-5xl block mb-4">🏆</span>
-            <h2 className="text-2xl font-bold mb-4" style={{ color: '#d4a017' }}>اكتملت المغامرة!</h2>
-            <p className="mb-4" style={{ color: '#a890c0' }}>استكشفت كل المناطق المتاحة</p>
-            <button className="fantasy-btn w-full" onClick={() => setScreen('kingdom')}>🏰 العودة للمملكة</button>
+            <h2 className="text-2xl font-bold mb-4" style={{ color: '#8b7355' }}>اكتملت المغامرة!</h2>
+            <p className="mb-4" style={{ color: '#7a7a8a' }}>استكشفت كل المناطق المتاحة</p>
+            <button className="fantasy-btn w-full" onClick={() => setScreen('kingdom')}>العودة للمملكة</button>
           </div>
         </div>
       );
@@ -1228,38 +1229,38 @@ export default function GamePage() {
         {/* Damage Numbers */}
         {damageNumbers.map(d => (
           <div key={d.id} className="damage-number" style={{ left: `${d.x}%`, top: `${d.y}%`, color: d.color }}>
-            {d.color === '#22c55e' ? '+' : '-'}{d.value}
+            {d.color === '#5a9a5a' ? '+' : '-'}{d.value}
           </div>
         ))}
 
         {/* Top Resource Bar */}
-        <div className="p-3 relative z-10" style={{ background: 'rgba(45, 27, 78, 0.9)', borderBottom: '2px solid #6b3fa0', backdropFilter: 'blur(10px)' }}>
+        <div className="p-3 relative z-10" style={{ background: 'rgba(18, 18, 26, 0.95)', borderBottom: '1px solid #2a2a3e', backdropFilter: 'blur(10px)' }}>
           <div className="flex items-center gap-2 mb-2">
             <span className="text-2xl">{char?.emoji}</span>
-            <span className="font-bold" style={{ color: '#d4a017' }}>{char?.name}</span>
-            <span className="text-xs px-2 rounded-full" style={{ background: '#3d2a5c', color: '#a890c0' }}>{char?.classAr}</span>
-            <span className="mr-auto text-xs" style={{ color: '#a890c0' }}>{region?.emoji} {region?.name}</span>
+            <span className="font-bold" style={{ color: '#8b7355' }}>{char?.name}</span>
+            <span className="text-xs px-2 rounded-full" style={{ background: '#2a2a3e', color: '#7a7a8a' }}>{char?.classAr}</span>
+            <span className="mr-auto text-xs" style={{ color: '#7a7a8a' }}>{region?.emoji} {region?.name}</span>
           </div>
 
-          <ResourceBar value={res.health} max={res.maxHealth} color="#ef4444" label="الصحة" emoji="❤️" />
+          <ResourceBar value={res.health} max={res.maxHealth} color="#b05050" label="الصحة" emoji="❤️" />
           <ResourceBar value={res.mana} max={res.maxMana} color="#3b82f6" label="المانا" emoji="💎" />
 
           <div className="flex gap-3 text-xs mt-2">
-            <span style={{ color: '#d4a017' }}>💰 {res.gold}</span>
-            <span style={{ color: '#22c55e' }}>⭐ {res.reputation}</span>
+            <span style={{ color: '#8b7355' }}>💰 {res.gold}</span>
+            <span style={{ color: '#5a9a5a' }}>⭐ {res.reputation}</span>
             <span style={{ color: '#8b5cf6' }}>📚 {res.knowledge}</span>
             <span style={{ color: '#f97316' }}>👥 {save.allies.length}/3</span>
           </div>
         </div>
 
         {/* Event Progress */}
-        <div className="px-3 py-1 text-center text-xs relative z-10" style={{ background: 'rgba(26, 10, 46, 0.9)', color: '#a890c0' }}>
+        <div className="px-3 py-1 text-center text-xs relative z-10" style={{ background: 'rgba(26, 10, 46, 0.9)', color: '#7a7a8a' }}>
           الحدث {save.eventIndex + 1} من {events.length} — {region?.name} {region?.emoji}
         </div>
 
         {/* Ally Indicators */}
         {save.allies.length > 0 && (
-          <div className="flex gap-1 px-3 py-1 relative z-10" style={{ background: 'rgba(45, 27, 78, 0.5)' }}>
+          <div className="flex gap-1 px-3 py-1 relative z-10" style={{ background: 'rgba(18, 18, 26, 0.7)' }}>
             {save.allies.map(ally => {
               const allyChar = getCharacter(ally.characterId);
               return (
@@ -1293,16 +1294,16 @@ export default function GamePage() {
                       {/* Enemy Info Bar */}
                       <div className="mt-3 p-3 rounded-xl" style={{ background: 'rgba(220, 38, 38, 0.15)', border: '1px solid rgba(220, 38, 38, 0.4)' }}>
                         <div className="flex items-center justify-between mb-2">
-                          <span className="font-bold text-lg" style={{ color: '#ef4444' }}>{enemy.emoji} {enemy.name}</span>
-                          <span className="text-xs px-2 py-1 rounded-full" style={{ background: 'rgba(220, 38, 38, 0.3)', color: '#ef4444' }}>⚔️ معركة</span>
+                          <span className="font-bold text-lg" style={{ color: '#b05050' }}>{enemy.emoji} {enemy.name}</span>
+                          <span className="text-xs px-2 py-1 rounded-full" style={{ background: 'rgba(220, 38, 38, 0.3)', color: '#b05050' }}>⚔️ معركة</span>
                         </div>
                         <div className="monster-hp-bar mb-2">
                           <div className="monster-hp-fill" style={{ width: '100%' }} />
                         </div>
                         <div className="flex gap-4 text-sm justify-center">
-                          <span style={{ color: '#ef4444' }}>❤️ {enemy.health}</span>
+                          <span style={{ color: '#b05050' }}>❤️ {enemy.health}</span>
                           <span style={{ color: '#f97316' }}>⚔️ ضرر: {enemy.damage}</span>
-                          <span style={{ color: '#d4a017' }}>💰 جائزة: {enemy.goldReward}</span>
+                          <span style={{ color: '#8b7355' }}>💰 جائزة: {enemy.goldReward}</span>
                         </div>
                       </div>
                     </div>
@@ -1313,8 +1314,8 @@ export default function GamePage() {
                 {currentEvent.type !== 'battle' && (
                   <div className="text-center mb-3">
                     <span className="text-4xl block mb-2">{currentEvent.emoji}</span>
-                    <h3 className="text-xl font-bold" style={{ color: '#d4a017' }}>{currentEvent.title}</h3>
-                    <span className="text-xs px-3 py-1 rounded-full inline-block mt-1" style={{ background: '#3d2a5c', color: '#a890c0' }}>
+                    <h3 className="text-xl font-bold" style={{ color: '#8b7355' }}>{currentEvent.title}</h3>
+                    <span className="text-xs px-3 py-1 rounded-full inline-block mt-1" style={{ background: '#2a2a3e', color: '#7a7a8a' }}>
                       {currentEvent.type === 'puzzle' ? '🧩 لغز' :
                        currentEvent.type === 'merchant' ? '🏪 تاجر' :
                        currentEvent.type === 'encounter' ? '🤝 لقاء' :
@@ -1328,20 +1329,20 @@ export default function GamePage() {
                 {/* Battle event title (shown below image) */}
                 {currentEvent.type === 'battle' && (
                   <div className="text-center mb-3">
-                    <h3 className="text-xl font-bold" style={{ color: '#d4a017' }}>{currentEvent.title}</h3>
+                    <h3 className="text-xl font-bold" style={{ color: '#8b7355' }}>{currentEvent.title}</h3>
                   </div>
                 )}
 
-                <p className="text-base leading-relaxed mb-4" style={{ color: '#f0e6d3' }}>
+                <p className="text-base leading-relaxed mb-4" style={{ color: '#c8c8d0' }}>
                   {currentEvent.description}
                 </p>
 
                 {/* Lina Foresight */}
                 {linaForesight && (
-                  <div className="mb-4 p-3 rounded-lg" style={{ background: 'rgba(212, 160, 23, 0.15)', border: '1px solid #d4a017' }}>
-                    <p className="text-xs font-bold mb-2" style={{ color: '#d4a017' }}>👁️ بصيرة لينا - نتيجة الخيارات:</p>
+                  <div className="mb-4 p-3 rounded-lg" style={{ background: 'rgba(212, 160, 23, 0.15)', border: '1px solid #8b7355' }}>
+                    <p className="text-xs font-bold mb-2" style={{ color: '#8b7355' }}>👁️ بصيرة لينا - نتيجة الخيارات:</p>
                     {currentEvent.options.map((opt, i) => (
-                      <div key={i} className="text-xs p-1.5 rounded mb-1" style={{ background: 'rgba(107, 63, 160, 0.3)', color: '#d4a017' }}>
+                      <div key={i} className="text-xs p-1.5 rounded mb-1" style={{ background: 'rgba(107, 63, 160, 0.3)', color: '#8b7355' }}>
                         خيار {i + 1}: {opt.outcome.success.text.substring(0, 50)}...
                       </div>
                     ))}
@@ -1358,10 +1359,10 @@ export default function GamePage() {
                     >
                       <span className="text-base">{option.text}</span>
                       {option.statCheck && (
-                        <div className="text-xs mt-1" style={{ color: '#a890c0' }}>
+                        <div className="text-xs mt-1" style={{ color: '#7a7a8a' }}>
                           يتطلب: {STAT_NAMES[option.statCheck] || option.statCheck} {option.statThreshold}+
                           {char && (
-                            <span style={{ color: '#22c55e' }}>
+                            <span style={{ color: '#5a9a5a' }}>
                               {' '}(لديك: {getEffectiveStat(char, option.statCheck, save.bonusStats)})
                             </span>
                           )}
@@ -1375,8 +1376,8 @@ export default function GamePage() {
               {/* Special Ability Button */}
               {!save.abilityUsedThisRegion && (
                 <button
-                  className="w-full p-3 rounded-lg text-center font-bold mb-3 transition-all hover:scale-[1.02] glow-pulse"
-                  style={{ background: 'linear-gradient(135deg, #6b3fa0, #4d1d8e)', border: '2px solid #d4a017', color: '#d4a017' }}
+                  className="w-full p-3 rounded-lg text-center font-bold mb-3 transition-all hover:bg-[#3a3a4e]"
+                  style={{ background: '#2a2a3e', border: '1px solid #8b7355', color: '#8b7355' }}
                   onClick={useAbility}
                 >
                   ✨ القدرة الخاصة: {char?.uniqueAbilityAr?.split(' - ')[0] || 'قدرة'}
@@ -1387,7 +1388,7 @@ export default function GamePage() {
             /* Outcome Display */
             <div className="fade-in">
               <div className="event-card-visual p-6 text-center">
-                <span className="text-5xl block mb-4 victory-bounce">
+                <span className="text-4xl block mb-4 fade-in">
                   {eventOutcome.includes('💀') ? '💀' :
                    eventOutcome.includes('🏆') ? '🏆' :
                    eventOutcome.includes('🔥') ? '🔥' :
@@ -1395,11 +1396,11 @@ export default function GamePage() {
                    eventOutcome.includes('🐸') ? '🐸' :
                    eventOutcome.includes('👼') ? '👼' : '✨'}
                 </span>
-                <p className="text-lg leading-relaxed mb-6" style={{ color: '#f0e6d3' }}>
+                <p className="text-lg leading-relaxed mb-6" style={{ color: '#c8c8d0' }}>
                   {eventOutcome}
                 </p>
                 <button className="fantasy-btn w-full text-lg" onClick={nextEvent}>
-                  {save.eventIndex >= (events.length - 1) ? '🗺️ المنطقة التالية' : '➡️ المتابعة'}
+                  {save.eventIndex >= (events.length - 1) ? 'المنطقة التالية' : 'المتابعة'}
                 </button>
               </div>
             </div>
@@ -1407,12 +1408,12 @@ export default function GamePage() {
         </div>
 
         {/* Bottom Navigation */}
-        <div className="p-3 flex gap-2 relative z-10" style={{ background: 'rgba(45, 27, 78, 0.95)', borderTop: '2px solid #6b3fa0', backdropFilter: 'blur(10px)' }}>
+        <div className="p-3 flex gap-2 relative z-10" style={{ background: 'rgba(18, 18, 26, 0.95)', borderTop: '1px solid #2a2a3e', backdropFilter: 'blur(10px)' }}>
           <button className="fantasy-btn-secondary flex-1 text-sm py-2" onClick={() => setScreen('kingdom')}>
-            🏰 المملكة
+            المملكة
           </button>
           <button className="fantasy-btn-secondary flex-1 text-sm py-2" onClick={() => setScreen('profile')}>
-            👤 ملفي
+            ملفي
           </button>
           <button
             className="fantasy-btn-secondary flex-1 text-sm py-2"
@@ -1433,7 +1434,7 @@ export default function GamePage() {
               }
             }}
           >
-            🔄 جديد
+            جديد
           </button>
         </div>
       </div>
@@ -1452,25 +1453,25 @@ export default function GamePage() {
           <div className="region-bg" style={{ backgroundImage: `url(${castleBg})` }} />
         )}
         <div className="event-card-visual p-8 max-w-md w-full text-center fade-in relative z-10">
-          <span className="text-7xl block mb-6 float-animation">{ending?.emoji || '🏆'}</span>
-          <h2 className="text-3xl font-bold mb-4 title-glow" style={{ color: '#d4a017' }}>
+          <span className="text-5xl block mb-6">{ending?.emoji || '◆'}</span>
+          <h2 className="text-3xl font-bold mb-4 font-serif-heading" style={{ color: '#8b7355' }}>
             {ending?.name || 'النهاية'}
           </h2>
-          <p className="text-lg mb-2" style={{ color: '#f0e6d3' }}>{ending?.description}</p>
+          <p className="text-lg mb-2" style={{ color: '#c8c8d0' }}>{ending?.description}</p>
 
           {save && (
-            <div className="mt-6 p-4 rounded-lg text-sm" style={{ background: '#1a0a2e' }}>
-              <h4 className="font-bold mb-2" style={{ color: '#d4a017' }}>📊 ملخص المغامرة</h4>
-              <div className="space-y-1" style={{ color: '#f0e6d3' }}>
-                <div className="flex justify-between"><span>❤️ الصحة النهائية:</span><span style={{ color: '#ef4444' }}>{save.resources.health}</span></div>
+            <div className="mt-6 p-4 rounded-lg text-sm" style={{ background: '#12121a' }}>
+              <h4 className="font-bold mb-2" style={{ color: '#8b7355' }}>📊 ملخص المغامرة</h4>
+              <div className="space-y-1" style={{ color: '#c8c8d0' }}>
+                <div className="flex justify-between"><span>❤️ الصحة النهائية:</span><span style={{ color: '#b05050' }}>{save.resources.health}</span></div>
                 <div className="flex justify-between"><span>📚 المعرفة:</span><span style={{ color: '#8b5cf6' }}>{save.resources.knowledge}</span></div>
-                <div className="flex justify-between"><span>⭐ السمعة:</span><span style={{ color: '#22c55e' }}>{save.resources.reputation}</span></div>
-                <div className="flex justify-between"><span>💰 الذهب:</span><span style={{ color: '#d4a017' }}>{save.resources.gold}</span></div>
-                <div className="flex justify-between"><span>👥 الحلفاء:</span><span style={{ color: '#d4a017' }}>{save.allies.length}</span></div>
-                <div className="flex justify-between"><span>🏅 الإنجازات:</span><span style={{ color: '#d4a017' }}>{save.achievements.length}/20</span></div>
-                <div className="flex justify-between"><span>⭐ النتيجة:</span><span style={{ color: '#d4a017', fontWeight: 'bold', fontSize: '1.1rem' }}>{save.highestScore}</span></div>
+                <div className="flex justify-between"><span>⭐ السمعة:</span><span style={{ color: '#5a9a5a' }}>{save.resources.reputation}</span></div>
+                <div className="flex justify-between"><span>💰 الذهب:</span><span style={{ color: '#8b7355' }}>{save.resources.gold}</span></div>
+                <div className="flex justify-between"><span>👥 الحلفاء:</span><span style={{ color: '#8b7355' }}>{save.allies.length}</span></div>
+                <div className="flex justify-between"><span>🏅 الإنجازات:</span><span style={{ color: '#8b7355' }}>{save.achievements.length}/20</span></div>
+                <div className="flex justify-between"><span>⭐ النتيجة:</span><span style={{ color: '#8b7355', fontWeight: 'bold', fontSize: '1.1rem' }}>{save.highestScore}</span></div>
                 {save.startTime && (
-                  <div className="flex justify-between"><span>⏱️ وقت اللعب:</span><span style={{ color: '#d4a017' }}>{formatTime(Date.now() - save.startTime)}</span></div>
+                  <div className="flex justify-between"><span>⏱️ وقت اللعب:</span><span style={{ color: '#8b7355' }}>{formatTime(Date.now() - save.startTime)}</span></div>
                 )}
               </div>
             </div>
@@ -1495,13 +1496,13 @@ export default function GamePage() {
                 addFeed(`${save.name} بدأ مغامرة جديدة!`, '🔄');
               }
             }}>
-              🔄 العب مرة أخرى
+              ابدأ من جديد
             </button>
             <button className="fantasy-btn-secondary w-full" onClick={() => {
               setEndingId(null);
               setScreen('kingdom');
             }}>
-              🏰 العودة للمملكة
+              العودة للمملكة
             </button>
           </div>
         </div>
@@ -1516,8 +1517,8 @@ export default function GamePage() {
     if (!showAchievement) return null;
     return (
       <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 slide-in" style={{
-        background: 'linear-gradient(135deg, #d4a017, #b8860b)',
-        color: '#1a0a2e',
+        background: 'linear-gradient(135deg, #8b7355, #b8860b)',
+        color: '#12121a',
         padding: '12px 24px',
         borderRadius: '12px',
         fontWeight: 'bold',
