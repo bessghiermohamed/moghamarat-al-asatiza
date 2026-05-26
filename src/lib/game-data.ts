@@ -1,27 +1,26 @@
 // ============================================
-// مغامرة الأساتذة - Game Data
+// مغامرة الأساتذة - Game Data (إعادة بناء من الصفر)
 // ============================================
 
+// ========== أنواع البيانات ==========
+
 export interface CharacterStats {
-  strength: number; // القوة
-  intelligence: number; // الذكاء
-  luck: number; // الحظ
-  charisma: number; // الكاريزما
-  mana: number; // المانا
-  defense: number; // الدفاع
+  strength: number;
+  intelligence: number;
+  luck: number;
+  charisma: number;
+  mana: number;
+  defense: number;
 }
 
 export interface Character {
   id: string;
   name: string;
-  class: string;
   classAr: string;
   stats: CharacterStats;
-  uniqueAbility: string;
   uniqueAbilityAr: string;
   signature: string;
   emoji: string;
-  glowColor: string; // Tailwind color for border glow
 }
 
 export interface Region {
@@ -41,43 +40,29 @@ export interface GameResources {
   gold: number;
   reputation: number;
   knowledge: number;
-  allies: Ally[];
 }
 
 export interface Ally {
   characterId: string;
   name: string;
-  passiveAbility: string;
   passiveAbilityAr: string;
+}
+
+export interface EventOutcome {
+  healthChange?: number;
+  manaChange?: number;
+  goldChange?: number;
+  reputationChange?: number;
+  knowledgeChange?: number;
+  allyGain?: string;
+  text: string;
 }
 
 export interface EventOption {
   text: string;
   statCheck?: keyof CharacterStats;
   statThreshold?: number;
-  reputationCheck?: number;
-  knowledgeCheck?: number;
-  outcome: EventOutcome;
-}
-
-export interface EventOutcome {
-  success: {
-    healthChange?: number;
-    manaChange?: number;
-    goldChange?: number;
-    reputationChange?: number;
-    knowledgeChange?: number;
-    allyGain?: string;
-    text: string;
-  };
-  failure: {
-    healthChange?: number;
-    manaChange?: number;
-    goldChange?: number;
-    reputationChange?: number;
-    knowledgeChange?: number;
-    text: string;
-  };
+  outcome: { success: EventOutcome; failure: EventOutcome };
 }
 
 export interface GameEvent {
@@ -88,7 +73,6 @@ export interface GameEvent {
   description: string;
   emoji: string;
   options: EventOption[];
-  specialCondition?: string;
 }
 
 export interface Enemy {
@@ -104,14 +88,12 @@ export interface Achievement {
   name: string;
   description: string;
   emoji: string;
-  condition: string;
 }
 
 export interface Ending {
   id: string;
   name: string;
   description: string;
-  condition: string;
   emoji: string;
 }
 
@@ -119,343 +101,314 @@ export interface MerchantItem {
   name: string;
   price: number;
   emoji: string;
-  effect: string;
   effectAr: string;
+  healthChange?: number;
+  manaChange?: number;
+  goldChange?: number;
+  knowledgeChange?: number;
 }
 
-// ============================================
+export interface AllyPassive {
+  passiveAbilityAr: string;
+}
+
+// ========== دوال مساعدة ==========
+
+export function getInitialResources(): GameResources {
+  return {
+    health: 100,
+    maxHealth: 100,
+    mana: 50,
+    maxMana: 50,
+    gold: 20,
+    reputation: 0,
+    knowledge: 0,
+  };
+}
+
+// ========== ألوان التوهج حسب الفئة ==========
+export const CLASS_GLOW_COLORS: Record<string, string> = {
+  'محارب': 'border-red-500 shadow-red-500/30',
+  'حارس': 'border-red-400 shadow-red-400/30',
+  'لص': 'border-gray-400 shadow-gray-400/30',
+  'ساحر': 'border-purple-500 shadow-purple-500/30',
+  'مقاتل': 'border-red-500 shadow-red-500/30',
+  'قائد': 'border-yellow-500 shadow-yellow-500/30',
+  'مجهول': 'border-gray-600 shadow-gray-600/30',
+  'حكيمة': 'border-purple-400 shadow-purple-400/30',
+  'مشفيّة': 'border-green-400 shadow-green-400/30',
+  'تاجرة': 'border-yellow-400 shadow-yellow-400/30',
+  'شاعرة': 'border-purple-400 shadow-purple-400/30',
+  'كاهنة': 'border-sky-300 shadow-sky-300/30',
+  'ساحرة النار': 'border-red-500 shadow-red-500/30',
+  'ساحرة الماء': 'border-blue-400 shadow-blue-400/30',
+  'ساحرة الريح': 'border-green-300 shadow-green-300/30',
+  'غابية': 'border-green-500 shadow-green-500/30',
+  'أميرة': 'border-yellow-400 shadow-yellow-400/30',
+  'محققة': 'border-purple-400 shadow-purple-400/30',
+  'فلاحة': 'border-green-400 shadow-green-400/30',
+  'عرّافة': 'border-purple-500 shadow-purple-500/30',
+  'جاسوسة': 'border-gray-500 shadow-gray-500/30',
+  'حكيمة العجوز': 'border-purple-300 shadow-purple-300/30',
+  'ملاك': 'border-sky-200 shadow-sky-200/30',
+  'شيطانة طيبة': 'border-gray-600 shadow-gray-600/30',
+  'راهبة': 'border-sky-200 shadow-sky-200/30',
+  'صياد': 'border-green-500 shadow-green-500/30',
+  'فارس': 'border-red-400 shadow-red-400/30',
+};
+
+// ==========================================
 // 27 شخصية
-// ============================================
+// ==========================================
 export const CHARACTERS: Character[] = [
   {
     id: 'ibrahim',
     name: 'إبراهيم',
-    class: 'Warrior',
     classAr: 'محارب',
     stats: { strength: 5, intelligence: 2, luck: 3, charisma: 2, mana: 2, defense: 4 },
-    uniqueAbility: 'Double Strike',
     uniqueAbilityAr: 'الضربة المزدوجة - يضرب العدو ضربتين متتاليتين في جولة واحدة',
     signature: 'السيف لا يكذب',
     emoji: '⚔️',
-    glowColor: 'red',
   },
   {
     id: 'abdullah',
     name: 'عبد الله',
-    class: 'Guardian',
     classAr: 'حارس',
     stats: { strength: 4, intelligence: 3, luck: 2, charisma: 3, mana: 2, defense: 5 },
-    uniqueAbility: 'Shield of Faith',
     uniqueAbilityAr: 'درع الإيمان - يمتص الضربة التالية كاملاً مرة واحدة',
     signature: 'لن يمر أحد',
     emoji: '🛡️',
-    glowColor: 'red',
   },
   {
     id: 'sufian',
     name: 'سفيان',
-    class: 'Thief',
     classAr: 'لص',
     stats: { strength: 3, intelligence: 3, luck: 5, charisma: 3, mana: 2, defense: 2 },
-    uniqueAbility: 'Stealth Steal',
-    uniqueAbilityAr: 'السرقة الخفية - يسرق آيتماً عشوائياً من العدو أو التاجر دون ذهب',
+    uniqueAbilityAr: 'السرقة الخفية - يسرق آيتماً عشوائياً من العدو أو التاجر',
     signature: 'ما لا تراه هو ما يقتلك',
     emoji: '🗡️',
-    glowColor: 'gray',
   },
   {
     id: 'boukhloua',
     name: 'بوخلوة',
-    class: 'Sorcerer',
     classAr: 'ساحر',
     stats: { strength: 1, intelligence: 5, luck: 2, charisma: 3, mana: 5, defense: 2 },
-    uniqueAbility: 'Chaos Spell',
-    uniqueAbilityAr: 'تعويذة الفوضى - نتيجة عشوائية تماماً قد تدمر العدو أو تحولك لضفدعة لجولة واحدة',
+    uniqueAbilityAr: 'تعويذة الفوضى - نتيجة عشوائية قد تدمر العدو أو تحولك لضفدعة لجولة',
     signature: 'السحر لا يُفهم بل يُشعر',
     emoji: '🔮',
-    glowColor: 'purple',
   },
   {
     id: 'yacine',
     name: 'ياسين',
-    class: 'Fighter',
     classAr: 'مقاتل',
     stats: { strength: 4, intelligence: 3, luck: 3, charisma: 3, mana: 3, defense: 3 },
-    uniqueAbility: 'Warrior Rage',
     uniqueAbilityAr: 'غضب المحارب - يتضاعف ضرره عندما تنخفض صحته لأقل من 30',
     signature: 'الألم يصنع المحارب',
     emoji: '💪',
-    glowColor: 'red',
   },
   {
     id: 'ousama',
     name: 'أسامة',
-    class: 'Commander',
     classAr: 'قائد',
     stats: { strength: 3, intelligence: 4, luck: 2, charisma: 5, mana: 3, defense: 3 },
-    uniqueAbility: 'Command Shout',
     uniqueAbilityAr: 'صرخة القيادة - تعزز إحصائيات كل الحلفاء بنقطة واحدة لبقية المنطقة',
     signature: 'القائد يسير في المقدمة',
     emoji: '👑',
-    glowColor: 'yellow',
   },
   {
     id: 'karim',
     name: 'كريم',
-    class: 'Unknown',
     classAr: 'مجهول',
     stats: { strength: 3, intelligence: 3, luck: 3, charisma: 3, mana: 3, defense: 3 },
-    uniqueAbility: 'Sleeping Dragon',
-    uniqueAbilityAr: 'التنين النائم - في حدث عشوائي واحد من كل عشرة ينكشف كونه تنيناً ويدمر كل الأعداء',
+    uniqueAbilityAr: 'التنين النائم - في 1 من 10 ينكشف كونه تنيناً ويدمر كل الأعداء',
     signature: 'أنا لستُ ما تظن',
     emoji: '🐉',
-    glowColor: 'black',
   },
   {
     id: 'lina',
     name: 'لينا',
-    class: 'Sage',
     classAr: 'حكيمة',
     stats: { strength: 1, intelligence: 5, luck: 3, charisma: 4, mana: 4, defense: 2 },
-    uniqueAbility: 'Foresight',
-    uniqueAbilityAr: 'البصيرة - ترى نتيجة كل خيار قبل اتخاذه في حدث واحد لكل منطقة',
+    uniqueAbilityAr: 'البصيرة - ترى نتيجة كل خيار قبل اتخاذه مرة لكل منطقة',
     signature: 'المعرفة هي القوة الحقيقية',
     emoji: '📖',
-    glowColor: 'purple',
   },
   {
     id: 'nour',
     name: 'نور',
-    class: 'Healer',
     classAr: 'مشفيّة',
     stats: { strength: 2, intelligence: 4, luck: 3, charisma: 5, mana: 4, defense: 3 },
-    uniqueAbility: 'Instant Heal',
-    uniqueAbilityAr: 'الشفاء الفوري - تستعيد 30 نقطة صحة مرة واحدة لكل منططقة',
+    uniqueAbilityAr: 'الشفاء الفوري - تستعيد 30 نقطة صحة مرة واحدة لكل منطقة',
     signature: 'النور يشفي كل جرح',
     emoji: '✨',
-    glowColor: 'green',
   },
   {
     id: 'asma',
     name: 'أسماء',
-    class: 'Merchant',
     classAr: 'تاجرة',
     stats: { strength: 2, intelligence: 4, luck: 4, charisma: 4, mana: 2, defense: 2 },
-    uniqueAbility: 'Negotiation',
     uniqueAbilityAr: 'المفاوضة - تحصل دائماً على خصم 50% عند أي تاجر',
     signature: 'كل شيء قابل للتفاوض',
     emoji: '💰',
-    glowColor: 'yellow',
   },
   {
     id: 'maram',
     name: 'مرام',
-    class: 'Poet',
     classAr: 'شاعرة',
     stats: { strength: 1, intelligence: 5, luck: 4, charisma: 5, mana: 4, defense: 1 },
-    uniqueAbility: 'Enchanting Poem',
-    uniqueAbilityAr: 'قصيدة السحر - تُشلّ العدو بالكلمات لـ 3 جولات بدون قتال',
+    uniqueAbilityAr: 'قصيدة السحر - تُشلّ العدو بالكلمات لـ3 جولات بدون قتال',
     signature: 'الكلمة أقوى من السيف',
     emoji: '📜',
-    glowColor: 'purple',
   },
   {
     id: 'aya1',
     name: 'آية (الأولى)',
-    class: 'Priestess',
     classAr: 'كاهنة',
     stats: { strength: 2, intelligence: 5, luck: 4, charisma: 3, mana: 5, defense: 2 },
-    uniqueAbility: 'Prophecy',
     uniqueAbilityAr: 'التنبؤ - تعرف الحدث القادم في المنطقة قبل الوصول إليه',
     signature: 'الغيب لا يخفى على من يُصغي',
     emoji: '🕊️',
-    glowColor: 'white',
   },
   {
     id: 'doua_bentemra',
     name: 'دعاء بن تمرة',
-    class: 'Fire Sorceress',
     classAr: 'ساحرة النار',
     stats: { strength: 4, intelligence: 4, luck: 3, charisma: 3, mana: 4, defense: 2 },
-    uniqueAbility: 'Inferno',
-    uniqueAbilityAr: 'الجحيم - تحرق كل الأعداء في المنطقة دفعة واحدة لكن تستهلك 25 مانا',
+    uniqueAbilityAr: 'الجحيم - تحرق كل الأعداء دفعة واحدة لكن تستهلك 25 مانا',
     signature: 'النار لا تسأل إذناً',
     emoji: '🔥',
-    glowColor: 'red',
   },
   {
     id: 'doua_bensabaha',
     name: 'دعاء بن صباحة',
-    class: 'Water Sorceress',
     classAr: 'ساحرة الماء',
     stats: { strength: 2, intelligence: 5, luck: 3, charisma: 4, mana: 5, defense: 3 },
-    uniqueAbility: 'Healing Wave',
     uniqueAbilityAr: 'موجة الشفاء - تشفي اللاعب وكل الحلفاء 20 نقطة لكل واحد',
     signature: 'الماء يجد طريقه دائماً',
     emoji: '🌊',
-    glowColor: 'blue',
   },
   {
     id: 'doua_bensaidan',
     name: 'دعاء بن سعيدان',
-    class: 'Wind Sorceress',
     classAr: 'ساحرة الريح',
     stats: { strength: 3, intelligence: 4, luck: 4, charisma: 3, mana: 4, defense: 2 },
-    uniqueAbility: 'Storm',
     uniqueAbilityAr: 'العاصفة - تهرب من أي معركة فوراً دون خسارة صحة',
     signature: 'الريح لا تُقيَّد',
     emoji: '💨',
-    glowColor: 'green',
   },
   {
     id: 'rawan',
     name: 'روان',
-    class: 'Forest Ranger',
     classAr: 'غابية',
     stats: { strength: 3, intelligence: 3, luck: 5, charisma: 4, mana: 3, defense: 3 },
-    uniqueAbility: 'Nature Language',
-    uniqueAbilityAr: 'لغة الطبيعة - تتحدث مع الحيوانات وتستخدمها حلفاء مؤقتين في معركة',
+    uniqueAbilityAr: 'لغة الطبيعة - تتحدث مع الحيوانات وتستخدمها حلفاء مؤقتين',
     signature: 'الغابة تحمي من تحترمها',
     emoji: '🌿',
-    glowColor: 'green',
   },
   {
     id: 'bouchra',
     name: 'بشرى',
-    class: 'Princess',
     classAr: 'أميرة',
     stats: { strength: 2, intelligence: 4, luck: 3, charisma: 5, mana: 3, defense: 3 },
-    uniqueAbility: 'Royal Authority',
-    uniqueAbilityAr: 'السلطة الملكية - تأمر أي شخصية غير عدائية بالطاعة والمساعدة دون ذهب',
+    uniqueAbilityAr: 'السلطة الملكية - تأمر أي شخصية غير عدائية بالطاعة والمساعدة',
     signature: 'الأميرة لا تطلب تُصدر الأوامر',
     emoji: '👸',
-    glowColor: 'yellow',
   },
   {
     id: 'feryal',
     name: 'فريال',
-    class: 'Investigator',
     classAr: 'محققة',
     stats: { strength: 2, intelligence: 5, luck: 3, charisma: 4, mana: 3, defense: 2 },
-    uniqueAbility: 'Investigation',
     uniqueAbilityAr: 'التحقيق - تكشف الهوية الحقيقية والنوايا لأي شخصية تلتقيها',
     signature: 'لا شيء يختفي إلى الأبد',
     emoji: '🔍',
-    glowColor: 'purple',
   },
   {
     id: 'basma',
     name: 'بسمة',
-    class: 'Farmer',
     classAr: 'فلاحة',
     stats: { strength: 3, intelligence: 3, luck: 5, charisma: 4, mana: 2, defense: 3 },
-    uniqueAbility: 'Farm Luck',
     uniqueAbilityAr: 'حظ المزرعة - تجد أدوات وطعام مجاني بنسبة ضعف ما يجده غيرها',
     signature: 'الأرض تعطي من يعمل',
     emoji: '🌾',
-    glowColor: 'green',
   },
   {
     id: 'chaimaa',
     name: 'شيماء',
-    class: 'Seer',
     classAr: 'عرّافة',
     stats: { strength: 1, intelligence: 5, luck: 5, charisma: 3, mana: 5, defense: 1 },
-    uniqueAbility: 'Hidden Map',
     uniqueAbilityAr: 'الخريطة المخفية - ترى مسارات سرية بين المناطق لا يراها غيرها',
     signature: 'الحقيقة خلف كل وهم',
     emoji: '🗺️',
-    glowColor: 'purple',
   },
   {
     id: 'khaira',
     name: 'خيرة',
-    class: 'Spy',
     classAr: 'جاسوسة',
     stats: { strength: 3, intelligence: 5, luck: 4, charisma: 3, mana: 3, defense: 3 },
-    uniqueAbility: 'Disguise',
     uniqueAbilityAr: 'التنكّر - تتجنب أي مواجهة مع عدو دون قتال ودون هروب',
     signature: 'الظل لا يُرى',
     emoji: '🥷',
-    glowColor: 'gray',
   },
   {
     id: 'fatiha',
     name: 'فتيحة',
-    class: 'Elder Sage',
     classAr: 'حكيمة العجوز',
     stats: { strength: 1, intelligence: 5, luck: 4, charisma: 5, mana: 4, defense: 2 },
-    uniqueAbility: 'Wisdom of Ages',
     uniqueAbilityAr: 'حكمة الزمن - تحل أي لغز تلقائياً دون خسارة',
     signature: 'من عاش كثيراً رأى كل شيء',
     emoji: '🧓',
-    glowColor: 'purple',
   },
   {
     id: 'aya_bouhalassa',
     name: 'آية بوحلاسة',
-    class: 'Angel',
     classAr: 'ملاك',
     stats: { strength: 3, intelligence: 4, luck: 4, charisma: 5, mana: 4, defense: 3 },
-    uniqueAbility: 'Divine Protection',
-    uniqueAbilityAr: 'الحماية الإلهية - لا تموت في أول مرة تصل فيها الصحة للصفر بل تبقى بنقطة واحدة',
+    uniqueAbilityAr: 'الحماية الإلهية - لا تموت في أول مرة تصل فيها الصحة للصفر',
     signature: 'أنا لستُ وحدك',
     emoji: '👼',
-    glowColor: 'white',
   },
   {
     id: 'aya_boubaker',
     name: 'آية بوبكر',
-    class: 'Good Demon',
     classAr: 'شيطانة طيبة',
     stats: { strength: 4, intelligence: 3, luck: 5, charisma: 3, mana: 3, defense: 3 },
-    uniqueAbility: 'Funny Chaos',
-    uniqueAbilityAr: 'الفوضى المضحكة - كل حدث يحتمل نتيجة إضافية كوميدية غير متوقعة دائماً في صالحها',
+    uniqueAbilityAr: 'الفوضى المضحكة - نتيجة إضافية كوميدية غير متوقعة دائماً في صالحها',
     signature: 'الحياة مضحكة فلنضحك',
     emoji: '😈',
-    glowColor: 'black',
   },
   {
     id: 'naska',
     name: 'ناسكة',
-    class: 'Nun',
     classAr: 'راهبة',
     stats: { strength: 1, intelligence: 5, luck: 4, charisma: 4, mana: 5, defense: 2 },
-    uniqueAbility: 'Meditation',
     uniqueAbilityAr: 'التأمل - تستعيد كامل مواردها الصحة والمانا في نهاية كل منطقة',
     signature: 'الصمت أعمق الكلام',
     emoji: '🧘',
-    glowColor: 'white',
   },
   {
     id: 'boudar',
     name: 'بودار',
-    class: 'Hunter',
     classAr: 'صياد',
     stats: { strength: 4, intelligence: 3, luck: 4, charisma: 3, mana: 2, defense: 4 },
-    uniqueAbility: 'Sniper',
     uniqueAbilityAr: 'القناص - تضرب أولاً في كل معركة قبل أي عدو',
     signature: 'السهم لا يخطئ هدفه',
     emoji: '🏹',
-    glowColor: 'green',
   },
   {
     id: 'benyamina',
     name: 'بن يمينة',
-    class: 'Knight',
     classAr: 'فارس',
     stats: { strength: 5, intelligence: 2, luck: 3, charisma: 4, mana: 2, defense: 4 },
-    uniqueAbility: 'Cavalry Charge',
-    uniqueAbilityAr: 'هجوم الفرسان - يضاعف الضرر في الجولة الأولى من كل معركة فقط',
+    uniqueAbilityAr: 'هجوم الفرسان - يضاعف الضرر في الجولة الأولى من كل معركة',
     signature: 'الشرف فوق كل شيء',
     emoji: '🐴',
-    glowColor: 'red',
   },
 ];
 
-// ============================================
+// ==========================================
 // 6 مناطق
-// ============================================
+// ==========================================
 export const REGIONS: Region[] = [
   {
     id: 'forest',
@@ -481,7 +434,7 @@ export const REGIONS: Region[] = [
   {
     id: 'desert',
     name: 'صحراء النسيان',
-    description: 'صحراء قاسية تؤثر على الذاكرة - خطر خاص: فقدان معرفة عشوائية إذا لم تحل لغزها الرئيسي',
+    description: 'صحراء قاسية تؤثر على الذاكرة',
     eventCount: 4,
     specialDanger: 'فقدان معرفة عشوائية إذا لم تُحل لغز الصحراء',
     emoji: '🏜️',
@@ -502,9 +455,9 @@ export const REGIONS: Region[] = [
   },
 ];
 
-// ============================================
+// ==========================================
 // الأعداء حسب المنطقة
-// ============================================
+// ==========================================
 export const REGION_ENEMIES: Record<string, Enemy[]> = {
   forest: [
     { name: 'ذئب الظلام', health: 30, damage: 10, goldReward: 8, emoji: '🐺' },
@@ -540,9 +493,9 @@ export const REGION_ENEMIES: Record<string, Enemy[]> = {
   ],
 };
 
-// ============================================
-// الأحداث حسب المنطقة
-// ============================================
+// ==========================================
+// أحداث كل منطقة
+// ==========================================
 export const REGION_EVENTS: Record<string, GameEvent[]> = {
   forest: [
     {
@@ -566,7 +519,7 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
           text: '🚶 تجاهله والمضي قدماً',
           outcome: {
             success: { text: 'تجاهلته وواصلت طريقك. لا شيء تغير، لكن صوت أنينه يطاردك.' },
-            failure: { text: 'تجاهلته وواصلت طريقك. لا شيء تغير، لكن صوت أنينه يطاردك.' },
+            failure: { text: 'تجاهلته وواصلت طريقك. لا شيء تغير.' },
           },
         },
         {
@@ -600,7 +553,7 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
         {
           text: '✨ استخدام القدرة الخاصة',
           outcome: {
-            success: { goldChange: 12, text: 'استخدمت قدرتك الخاصة وقضيت على العنكبوت بطريقة مذهلة! وجدت كنزاً صغيراً!' },
+            success: { goldChange: 12, text: 'استخدمت قدرتك الخاصة وقضيت على العنكبوت بطريقة مذهلة!' },
             failure: { healthChange: -15, text: 'قدرتك لم تكن فعالة كفاية، لكنك نجوت بأضرار أقل.' },
           },
         },
@@ -609,7 +562,7 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
           statCheck: 'luck',
           statThreshold: 3,
           outcome: {
-            success: { text: 'هرولت بين الأشجار ونجوت! العنكبوت لم يستطع ملاحقتك في الأغصان الكثيفة.' },
+            success: { text: 'هرولت بين الأشجار ونجوت! العنكبوت لم يستطع ملاحقتك.' },
             failure: { healthChange: -20, text: 'حاولت الهروب لكن شبكة العنكبوت أمسكتك! أصبت قبل أن تتحرر.' },
           },
         },
@@ -619,7 +572,7 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
           statThreshold: 4,
           outcome: {
             success: { goldChange: 15, reputationChange: 2, text: 'بطريقة ما، أقنعت العنكبوت بالانسحاب! ووجدت كنزاً مخفياً في جحره.' },
-            failure: { healthChange: -15, text: 'العنكبوت لا يفهم الكلام! هاجمك وأصابك قبل أن تتراجع.' },
+            failure: { healthChange: -15, text: 'العنكبوت لا يفهم الكلام! هاجمك وأصابك.' },
           },
         },
       ],
@@ -636,7 +589,7 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
           text: '🧠 الحفرة (الإجابة الصحيحة)',
           outcome: {
             success: { knowledgeChange: 10, goldChange: 15, text: 'أحسنت! الحفرة كلما أخذت منها تراب كبرت! الشجرة منحتك المعرفة وذهباً.' },
-            failure: { knowledgeChange: 10, goldChange: 15, text: 'أحسنت! الحفرة كلما أخذت منها تراب كبرت! الشجرة منحتك المعرفة وذهباً.' },
+            failure: { knowledgeChange: 10, goldChange: 15, text: 'أحسنت! الشجرة منحتك المعرفة وذهباً.' },
           },
         },
         {
@@ -645,12 +598,13 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
           statThreshold: 3,
           outcome: {
             success: { knowledgeChange: 5, goldChange: 8, text: 'خمنت بشكل صحيح! الشجرة منحتك مكافأة صغيرة.' },
-            failure: { healthChange: -10, text: 'إجابة خاطئة! الشجرة أطلقت أشواكاً أصابتك. الغز حله: الحفرة.' },
+            failure: { healthChange: -10, text: 'إجابة خاطئة! الشجرة أطلقت أشواكاً أصابتك. الإجابة: الحفرة.' },
           },
         },
       ],
     },
   ],
+
   city: [
     {
       id: 'c1',
@@ -664,21 +618,21 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
           text: '🧴 جرعة الشفاء (15 ذهب) - تستعيد 30 صحة',
           outcome: {
             success: { goldChange: -15, healthChange: 30, text: 'شربت الجرعة وشعرت بالدفء يسري في جسدك. صحتك تعافت!' },
-            failure: { goldChange: -15, healthChange: 30, text: 'شربت الجرعة وشعرت بالدفء يسري في جسدك. صحتك تعافت!' },
+            failure: { goldChange: -15, healthChange: 30, text: 'شربت الجرعة وشعرت بالدفء يسري في جسدك!' },
           },
         },
         {
           text: '💎 بلورة المانا (20 ذهب) - تزيد المانا 25',
           outcome: {
-            success: { goldChange: -20, manaChange: 25, text: 'البلورة توهجت في يدك وشعرت بطاقة سحرية هائلة تتدفق!' },
-            failure: { goldChange: -20, manaChange: 25, text: 'البلورة توهجت في يدك وشعرت بطاقة سحرية هائلة تتدفق!' },
+            success: { goldChange: -20, manaChange: 25, text: 'البلورة توهجت في يدك وشعرت بطاقة سحرية هائلة!' },
+            failure: { goldChange: -20, manaChange: 25, text: 'البلورة توهجت في يدك وشعرت بطاقة سحرية هائلة!' },
           },
         },
         {
-          text: '🛡️ تعويذة الدفاع (25 ذهب) - تزيد الدفاع نقطة واحدة',
+          text: '🛡️ تعويذة الدفاع (25 ذهب) - تزيد الدفاع',
           outcome: {
             success: { goldChange: -25, text: 'التعويذة ذابت في جلدك! تشعر بصلابة غير عادية. دفاعك زاد!' },
-            failure: { goldChange: -25, text: 'التعويذة ذابت في جلدك! تشعر بصلابة غير عادية. دفاعك زاد!' },
+            failure: { goldChange: -25, text: 'التعويذة ذابت في جلدك! تشعر بصلابة غير عادية.' },
           },
         },
       ],
@@ -723,7 +677,7 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
       type: 'battle',
       region: 'city',
       title: 'لصوص الطريق!',
-      description: 'في زقاق مظلم، يظهر ثلاثة لصوص يحيطون بك! قائدهم يتقدم بسكين واضح: "أعطنا ذهبك أو نأخذه بالقوة!"',
+      description: 'في زقاق مظلم، يظهر ثلاثة لصوص يحيطون بك! قائدهم يتقدم بسكين: "أعطنا ذهبك أو نأخذه بالقوة!"',
       emoji: '🦹',
       options: [
         {
@@ -731,15 +685,8 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
           statCheck: 'strength',
           statThreshold: 3,
           outcome: {
-            success: { goldChange: 20, healthChange: -15, reputationChange: 3, text: 'هزمت اللصوص بشجاعة! وجدت 20 ذهب في جيوبهم وأصبحت بطلاً في المدينة!' },
+            success: { goldChange: 20, healthChange: -15, reputationChange: 3, text: 'هزمت اللصوش بشجاعة! وجدت 20 ذهب وأصبحت بطلاً في المدينة!' },
             failure: { goldChange: -10, healthChange: -25, text: 'اللصوص أقوى مما توقعت! سرقوا بعض ذهبك وأصابوك.' },
-          },
-        },
-        {
-          text: '✨ استخدام القدرة الخاصة',
-          outcome: {
-            success: { goldChange: 15, text: 'استخدمت قدرتك وأصابت اللصوص بالرعب! فروا تاركين ذهبهم!' },
-            failure: { goldChange: -5, healthChange: -15, text: 'قدرتك أثرت قليلاً لكن اللصوص لا يزالون خطيرين. فقدت بعض الذهب.' },
           },
         },
         {
@@ -756,7 +703,7 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
           statCheck: 'charisma',
           statThreshold: 3,
           outcome: {
-            success: { reputationChange: 5, text: 'أقنعتهم بأنك لست فريسة سهلة! انسحبوا باحترام وأنت كسبت سمعة.' },
+            success: { reputationChange: 5, text: 'أقنعتهم بأنك لست فريسة سهلة! انسحبوا باحترام وكسبت سمعة.' },
             failure: { goldChange: -10, text: 'لم يستمعوا لك! أخذوا بعض ذهبك وتركوك.' },
           },
         },
@@ -767,7 +714,7 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
       type: 'comedy',
       region: 'city',
       title: 'حادث مضحك في السوق',
-      description: 'بينما تمشي في السوق، تعثرت ببرميل عجة طائر! البرميل ينقلب وتطير العجة في الهواء وتسقط على رأس تاجر متجهم! التاجر ينظر إليك بغضب... وعجته على رأسه تبدو كقبعات مضحكة!',
+      description: 'بينما تمشي في السوق، تعثرت ببرميل عجة طائر! البرميل ينقلب وتطير العجة في الهواء وتسقط على رأس تاجر متجهم! التاجر ينظر إليك بغضب... وعجته على رأسه تبدو كقبعة مضحكة!',
       emoji: '😂',
       options: [
         {
@@ -775,7 +722,7 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
           statCheck: 'charisma',
           statThreshold: 2,
           outcome: {
-            success: { reputationChange: 3, goldChange: -5, text: 'التاجر انفجر ضاحكاً رغم غضبه! قال: "هذه أفضل قبعة شفتها!". أصبحتم أصدقاء.' },
+            success: { reputationChange: 3, goldChange: -5, text: 'التاجر انفجر ضاحكاً! قال: "هذه أفضل قبعة شفتها!". أصبحتم أصدقاء.' },
             failure: { reputationChange: -2, goldChange: -10, text: 'التاجر لم يضحك. أخذ تعويضاً ومضى وهو يزمجر.' },
           },
         },
@@ -784,20 +731,21 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
           statCheck: 'luck',
           statThreshold: 3,
           outcome: {
-            success: { text: 'هربت بسرعة البرق! لا أحد عرف من أنت. العجة بقيت ذكرى مضحكة في السوق.' },
+            success: { text: 'هربت بسرعة البرق! لا أحد عرف من أنت. العجة بقيت ذكرى مضحكة.' },
             failure: { reputationChange: -3, text: 'حاولت الهرب لكنك تعثرت مرة أخرى! الآن الجميع يضحك عليك.' },
           },
         },
       ],
     },
   ],
+
   mountains: [
     {
       id: 'm1',
       type: 'crossroads',
       region: 'mountains',
       title: 'مفترق الجبال',
-      description: 'تصل إلى مفترق طرق في قلب الجبال. الطريق الأيسر يؤدي إلى كهف مظلم تسمع منه أصوات غريبة. الطريق الأيمن يمر فوق جسر حجراني قديم فوق هوة سحيقة.',
+      description: 'تصل إلى مفترق طرق في قلب الجبال. الطريق الأيسر يؤدي إلى كهف مظلم تسمع منه أصوات غريبة. الطريق الأيمن يمر فوق جسر حجري قديم فوق هوة سحيقة.',
       emoji: '⛰️',
       options: [
         {
@@ -805,7 +753,7 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
           statCheck: 'intelligence',
           statThreshold: 3,
           outcome: {
-            success: { knowledgeChange: 15, goldChange: 20, text: 'الكهف يحتوي على مكتبة قديمة! وجدت معرفة وذهباً مخفياً. المخاطر كانت تستحق العناء!' },
+            success: { knowledgeChange: 15, goldChange: 20, text: 'الكهف يحتوي على مكتبة قديمة! وجدت معرفة وذهباً مخفياً.' },
             failure: { healthChange: -20, text: 'الظلام كان خانقاً! سقطت في حفرة وأصبت. لم تجد شيئاً مفيداً.' },
           },
         },
@@ -814,12 +762,12 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
           statCheck: 'luck',
           statThreshold: 3,
           outcome: {
-            success: { goldChange: 15, text: 'الجسر كان آمناً! وجدت كنزاً مخفياً تحت أحد الأحجار في المنتصف.' },
+            success: { goldChange: 15, text: 'الجسر كان آمناً! وجدت كنزاً مخفياً تحت أحد الأحجار.' },
             failure: { healthChange: -25, text: 'الجسر انهار جزئياً! كدت تسقط في الهوة وأصبت بجروح.' },
           },
         },
         {
-          text: '🗺️ البحث عن مسار سري (شيماء فقط)',
+          text: '🗺️ البحث عن مسار سري',
           statCheck: 'intelligence',
           statThreshold: 4,
           outcome: {
@@ -847,13 +795,6 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
           },
         },
         {
-          text: '✨ استخدام القدرة الخاصة',
-          outcome: {
-            success: { goldChange: 20, text: 'قدرتك الخاصة أذهلت العملاق! تراجع وترك لك طريقاً وذهباً!' },
-            failure: { healthChange: -25, text: 'العملاق لم يتأثر بقدرتك كثيراً. أصبت قبل أن يتراجع.' },
-          },
-        },
-        {
           text: '🏃 الهروب',
           statCheck: 'luck',
           statThreshold: 4,
@@ -867,7 +808,7 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
           statCheck: 'charisma',
           statThreshold: 4,
           outcome: {
-            success: { reputationChange: 5, text: 'أقنعت العملاق بأنك مسافر سلمي! سمح لك بالمرور وأصبحت صديقه.' },
+            success: { reputationChange: 5, text: 'أقنعت العملاق بأنك مسافر سلمي! سمح لك بالمرور.' },
             failure: { healthChange: -15, text: 'العملاق لا يقنع بالكلام! هاجمك.' },
           },
         },
@@ -884,7 +825,7 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
         {
           text: '🌬️ الريح (الإجابة الصحيحة)',
           outcome: {
-            success: { knowledgeChange: 15, goldChange: 20, text: 'صحيح! الريح! الجدار ينفتح ويكشف عن غرفة كنز! حصلت على معرفة وذهب!' },
+            success: { knowledgeChange: 15, goldChange: 20, text: 'صحيح! الريح! الجدار ينفتح ويكشف عن غرفة كنز!' },
             failure: { knowledgeChange: 15, goldChange: 20, text: 'صحيح! الريح! الجدار ينفتح ويكشف عن غرفة كنز!' },
           },
         },
@@ -893,13 +834,14 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
           statCheck: 'luck',
           statThreshold: 3,
           outcome: {
-            success: { knowledgeChange: 5, goldChange: 10, text: 'خمنت بشكل صحيح! الإجابة: الريح. حصلت على مكافأة صغيرة.' },
+            success: { knowledgeChange: 5, goldChange: 10, text: 'خمت بشكل صحيح! الإجابة: الريح. حصلت على مكافأة.' },
             failure: { healthChange: -15, text: 'خطأ! الأرض اهتزت وأصبت بصخرة. الإجابة كانت: الريح.' },
           },
         },
       ],
     },
   ],
+
   desert: [
     {
       id: 'd1',
@@ -915,14 +857,14 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
           statThreshold: 3,
           outcome: {
             success: { healthChange: 20, manaChange: 15, text: 'الواحة حقيقية! شربت الماء واسترحت. صحتك ومانا تعافتا!' },
-            failure: { healthChange: -20, text: 'سراب! الواحة اختفت وضاعت طاقتك في المشي تحت الشمس الحارقة.' },
+            failure: { healthChange: -20, text: 'سراب! الواحة اختفت وضاعت طاقتك في المشي تحت الشمس.' },
           },
         },
         {
           text: '🪨 التوجه نحو الصخور المظللة',
           outcome: {
             success: { healthChange: 5, knowledgeChange: 10, text: 'الصخور كانت آمنة. وجدت نقوشاً قديمة على جدرانها تعطيك معرفة.' },
-            failure: { healthChange: 5, knowledgeChange: 10, text: 'الصخور كانت آمنة. وجدت نقوشاً قديمة على جدرانها تعطيك معرفة.' },
+            failure: { healthChange: 5, knowledgeChange: 10, text: 'الصخور كانت آمنة. وجدت نقوشاً قديمة تعطيك معرفة.' },
           },
         },
       ],
@@ -941,14 +883,7 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
           statThreshold: 3,
           outcome: {
             success: { goldChange: 25, healthChange: -20, text: 'هزمت المومياء! تطايرت أشرطتها ووجدت ذهباً فرعونياً!' },
-            failure: { healthChange: -30, knowledgeChange: -5, text: 'المومياء ألعت عليك لعنة! أصبت جسدياً وفقدت بعض المعرفة.' },
-          },
-        },
-        {
-          text: '✨ استخدام القدرة الخاصة',
-          outcome: {
-            success: { goldChange: 20, text: 'قدرتك أبطلت لعنة المومياء! تراجعت خائفة وتركت كنزها.' },
-            failure: { healthChange: -20, knowledgeChange: -5, text: 'المومياء قاومت قدرتك! أصبت وفقدت بعض المعرفة.' },
+            failure: { healthChange: -30, knowledgeChange: -5, text: 'المومياء ألعت عليك لعنة! أصبت وفقدت بعض المعرفة.' },
           },
         },
         {
@@ -956,7 +891,7 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
           statCheck: 'luck',
           statThreshold: 4,
           outcome: {
-            success: { text: 'ركضت عبر العاصفة الرملية ونجوت! المومياء لا تستطيع اللحاق بك.' },
+            success: { text: 'ركضت عبر العاصفة الرملية ونجوت!' },
             failure: { healthChange: -20, text: 'العاصفة الرملية أصابتك! المومياء كادت تمسكك.' },
           },
         },
@@ -976,14 +911,14 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
       type: 'puzzle',
       region: 'desert',
       title: 'لغز صحراء النسيان',
-      description: '⚠️ لغز رئيسي! عمود حجري في وسط الصحراء يحمل لغزاً: "ما الشيء الذي لا يمكنك رؤيته لكنه يراك دائماً؟" إذا أخطأت، ستفقد معرفة عشوائية!',
-      emoji: '⚠️',
+      description: '⚠️ لغز رئيسي! عمود حجري عليه رموز: "أنا مدينة بلا شوارع، بلا بيوت، بلا أشجار. لكني مليئة بالسكان. ما أنا؟" إذا أخطأت ستفقد معرفة!',
+      emoji: '🧩',
       options: [
         {
-          text: '👁️ المستقبل (الإجابة الصحيحة)',
+          text: '🗺️ الخريطة (الإجابة الصحيحة)',
           outcome: {
-            success: { knowledgeChange: 20, goldChange: 25, text: 'أحسنت! المستقبل لا تراه لكنه يرى طريقك! نجوت من لعنة النسيان وحصلت على معرفة عظيمة!' },
-            failure: { knowledgeChange: 20, goldChange: 25, text: 'أحسنت! المستقبل! حصلت على مكافأة عظيمة!' },
+            success: { knowledgeChange: 20, goldChange: 25, text: 'صحيح! الخريطة! الرمال تتفتح وتكشف عن صندوق كنز قديم! حصلت على معرفة وذهب!' },
+            failure: { knowledgeChange: 20, goldChange: 25, text: 'صحيح! الخريطة! حصلت على معرفة وذهب!' },
           },
         },
         {
@@ -991,51 +926,82 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
           statCheck: 'luck',
           statThreshold: 4,
           outcome: {
-            success: { knowledgeChange: 5, goldChange: 10, text: 'خمنت بشكل صحيح! الإجابة: المستقبل. نجوت بصعوبة.' },
-            failure: { knowledgeChange: -10, healthChange: -15, text: 'خطأ! لعنة النسيان أصابتك! فقدت معرفة وأصبت. الإجابة: المستقبل.' },
+            success: { knowledgeChange: 10, goldChange: 15, text: 'خمنت بشكل صحيح! الإجابة: الخريطة.' },
+            failure: { knowledgeChange: -10, healthChange: -15, text: 'خطأ! الصحراء سحبت معرفة من ذاكرتك! الإجابة: الخريطة.' },
           },
         },
       ],
     },
     {
       id: 'd4',
-      type: 'encounter',
+      type: 'comedy',
       region: 'desert',
-      title: 'جني الصحراء',
-      description: 'من قلب إعصار رملي يظهر جني بملابس براقة! يقول: "أنا جني الصحراء! لي ثلاث أمنيات... لكن واحدة فقط لك! اختر بحكمة."',
-      emoji: '🧞',
+      title: 'جمل ثرثار',
+      description: 'بينما تمشي في الصحراء، يقف جمل في طريقك ويرفض التحرك. ثم يفتح فمه ويقول بصوت بشري: "ما شاء الله عليك، تعبان! قوللي نكتة وأعبرك!"',
+      emoji: '🐪',
       options: [
         {
-          text: '💰 أمنية الغنى - 50 ذهب',
+          text: '😄 قول نكتة',
+          statCheck: 'charisma',
+          statThreshold: 2,
           outcome: {
-            success: { goldChange: 50, text: 'الجني نقر أصابعه وظهر كيس ذهب! 50 قطعة ذهب أمامك!' },
-            failure: { goldChange: 50, text: 'الجني نقر أصابعه وظهر كيس ذهب! 50 قطعة ذهب أمامك!' },
+            success: { goldChange: 20, reputationChange: 2, text: 'الجمل انفجر ضاحكاً وقال: "إنت أول واحد يضحكني من 300 سنة!" أعطاك 20 ذهب وترك الطريق.' },
+            failure: { text: 'الجمل لم يضحك. قال: "يا خسارة" وترك الطريق مكتئباً.' },
           },
         },
         {
-          text: '❤️ أمنية الصحة - استعادة كاملة',
+          text: '🚶 تجاوزه بهدوء',
           outcome: {
-            success: { healthChange: 100, text: 'الجني لمس جبينك وتحسنت حالتك بالكامل! صحة كاملة!' },
-            failure: { healthChange: 100, text: 'الجني لمس جبينك وتحسنت حالتك بالكامل!' },
-          },
-        },
-        {
-          text: '📚 أمنية المعرفة - 20 معرفة',
-          outcome: {
-            success: { knowledgeChange: 20, text: 'الجني نفخ في وجهك知识和! غمرتك رؤى من العصور القديمة!' },
-            failure: { knowledgeChange: 20, text: 'الجني نفخ في وجهك! غمرتك رؤى من العصور القديمة!' },
+            success: { text: 'تجاوزت الجمل بهدوء. قال بصوت خافت: "ما عندك حس humor..."' },
+            failure: { text: 'تجاوزت الجمل بهدوء. بدا محبطاً.' },
           },
         },
       ],
     },
   ],
+
   ocean: [
     {
       id: 'o1',
+      type: 'encounter',
+      region: 'ocean',
+      title: 'حكيم الأعماق',
+      description: 'في قاع البحر الفضي، تجد كائناً عجوزاً يجلس على صخرة مرجانية يحيطه ضوء أزرق. يفتح عينيه ببطء: "يا مسافر فوق الماء... أنا أعرف ما تبحث عنه. لكن كل معرفة لها ثمن."',
+      emoji: '🧜',
+      options: [
+        {
+          text: '📚 طلب المعرفة عن الكتاب الأعظم',
+          statCheck: 'intelligence',
+          statThreshold: 3,
+          outcome: {
+            success: { knowledgeChange: 20, text: 'حكيم الأعماق كشف لك أسراراً عن الكتاب! حصلت على معرفة قيّمة ستساعدك في المعركة النهائية.' },
+            failure: { manaChange: -15, text: 'الحكيم حاول نقل المعرفة لكن عقلك لم يستوعبها. فقدت بعض المانا في المحاولة.' },
+          },
+        },
+        {
+          text: '🤝 عرض التحالف',
+          statCheck: 'charisma',
+          statThreshold: 4,
+          outcome: {
+            success: { allyGain: 'nour', reputationChange: 3, text: 'أرسل الحكيم نور لمساعدتك! قالت: "الحكيم يرى فيك بطلاً حقيقياً". أصبحت حليفتك!' },
+            failure: { text: 'الحكيم رفض بلطف: "ليس الوقت مناسباً". لكنه بارك رحلتك.' },
+          },
+        },
+        {
+          text: '🚶 شكره والمضي قدماً',
+          outcome: {
+            success: { knowledgeChange: 5, text: 'شكرت الحكيم وواصلت طريقك. منحك بركة بسيطة زادت معرفتك قليلاً.' },
+            failure: { knowledgeChange: 5, text: 'شكرت الحكيم وواصلت طريقك.' },
+          },
+        },
+      ],
+    },
+    {
+      id: 'o2',
       type: 'battle',
       region: 'ocean',
       title: 'أخطبوط العمق!',
-      description: 'في الأعماق الفضية، يظهر أخطبوط عملاق بأذرعه الثمانية! يحيط بك ويزمجر: "هذه مياهي!"',
+      description: 'من الظلام العميق، تظهر أذرع ضخمة! أخطبوط عملاق بأعين حمراء يحاصرك! كل ذراع أقوى من السيف!',
       emoji: '🐙',
       options: [
         {
@@ -1043,41 +1009,41 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
           statCheck: 'strength',
           statThreshold: 4,
           outcome: {
-            success: { goldChange: 30, healthChange: -20, text: 'قطعت أذرع الأخطبوط واحداً تلو الآخر! وجدت لآلئاً ثمينة!' },
-            failure: { healthChange: -30, text: 'الأخطبوط خنقك بأذرعه! كدت تغرق قبل أن تتحرر.' },
+            success: { goldChange: 30, healthChange: -20, text: 'بقوة خارقة قطعت أذرع الأخطبوط! وجدت لؤلؤاً نادراً يساوي 30 ذهب!' },
+            failure: { healthChange: -35, text: 'الأخطبوط أمسكك بأذرعه! كدت تختنق قبل أن تتحرر بصعوبة.' },
           },
         },
         {
           text: '✨ استخدام القدرة الخاصة',
           outcome: {
-            success: { goldChange: 25, text: 'قدرتك أذهلت الأخطبوط! فرّ تاركاً لآلئه!' },
-            failure: { healthChange: -20, text: 'قدرتك لم تؤثر كثيراً تحت الماء. أصبت.' },
+            success: { goldChange: 25, text: 'قدرتك أذهلت الأخطبوط! تراجع وترك لك لؤلؤاً ثميناً!' },
+            failure: { healthChange: -20, text: 'قدرتك أثرت قليلاً لكن الأخطبوط لا يزال خطيراً.' },
           },
         },
         {
-          text: '🏃 الهروب عبر التيارات',
-          statCheck: 'luck',
-          statThreshold: 3,
+          text: '🗣️ غناء أغنية البحر',
+          statCheck: 'charisma',
+          statThreshold: 4,
           outcome: {
-            success: { text: 'استغللت تياراً مائياً سريعاً ونجوت! الأخطبوط لم يستطع اللحاق.' },
-            failure: { healthChange: -20, text: 'الأذرع أمسكتك! أصبت قبل أن تتحرر.' },
+            success: { goldChange: 35, knowledgeChange: 10, text: 'بصوتك الجميل، أغمض الأخطبوط عينيه واستسلم للنوم! وجدت كنزاً تحته!' },
+            failure: { healthChange: -25, text: 'الأخطبوط لم يتأثر بغنائك! هاجمك بغضب.' },
           },
         },
       ],
     },
     {
-      id: 'o2',
+      id: 'o3',
       type: 'puzzle',
       region: 'ocean',
-      title: 'لغز حورية البحر',
-      description: 'حورية جميلة تسبح نحوك وتقول: "أجب عن لغزي لتعبر: ما الشيء الذي يمتلئ وهو فارغ؟"',
-      emoji: '🧜‍♀️',
+      title: 'لغز المحارة السحرية',
+      description: 'محارة عملاقة تطفو أمامك. تفتح ببطء وتقول بصوت صدى: "أنا أملك لؤلؤة الحكمة. أجب عن لغزي: ما الشيء الذي يملك فماً لكنه لا يتكلم، وسريراً لكنه لا ينام؟"',
+      emoji: '🐚',
       options: [
         {
-          text: '🌙 القمر (الإجابة الصحيحة)',
+          text: '🌊 النهر (الإجابة الصحيحة)',
           outcome: {
-            success: { knowledgeChange: 15, goldChange: 25, text: 'أحسنت! القمر يمتلئ وهو فارغ! الحورية منحتك لؤلؤة سحرية!' },
-            failure: { knowledgeChange: 15, goldChange: 25, text: 'أحسنت! القمر يمتلئ وهو فارغ!' },
+            success: { knowledgeChange: 15, goldChange: 20, manaChange: 15, text: 'صحيح! النهر يملك فماً وسريراً! المحارة منحتك لؤلؤة الحكمة!' },
+            failure: { knowledgeChange: 15, goldChange: 20, manaChange: 15, text: 'صحيح! المحارة منحتك لؤلؤة الحكمة!' },
           },
         },
         {
@@ -1085,53 +1051,21 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
           statCheck: 'luck',
           statThreshold: 3,
           outcome: {
-            success: { knowledgeChange: 5, goldChange: 10, text: 'خمنت بشكل صحيح! الإجابة: القمر.' },
-            failure: { healthChange: -15, text: 'خطأ! الحورية دفعتك للتيار. الإجابة: القمر.' },
-          },
-        },
-      ],
-    },
-    {
-      id: 'o3',
-      type: 'encounter',
-      region: 'ocean',
-      title: 'حورية الغدر',
-      description: 'حورية جميلة تنادي من الصخور: "تعال يا مسافر، عندي كنوز لا تُصدق!" لكن شيئاً في عيونها يبدو مريباً...',
-      emoji: '🧜‍♀️',
-      options: [
-        {
-          text: '🤝 الاقتراب بحذر',
-          statCheck: 'intelligence',
-          statThreshold: 4,
-          outcome: {
-            success: { goldChange: 35, text: 'كنت حذراً واكتشفت فخها! حصلت على كنزها الحقيقي ونجوت.' },
-            failure: { healthChange: -25, goldChange: -10, text: 'كان فخاً! الحورية هاجمتك وأخذت بعض ذهبك.' },
-          },
-        },
-        {
-          text: '🚶 تجاهلها',
-          outcome: {
-            success: { text: 'تجاهلتها بحكمة. صوتها تلاشى خلفك... ومضيت بأمان.' },
-            failure: { text: 'تجاهلتها بحكمة. صوتها تلاشى خلفك.' },
-          },
-        },
-        {
-          text: '🔍 التحقيق (فريال فقط)',
-          outcome: {
-            success: { goldChange: 40, text: 'كشفت هويتها الحقيقية! كانت أميرة بحر مختبئة. منحتك كنزاً!' },
-            failure: { healthChange: -10, text: 'لم تكتشف شيئاً إضافياً لكنك نجوت.' },
+            success: { knowledgeChange: 8, goldChange: 10, text: 'خمت بشكل صحيح! الإجابة: النهر.' },
+            failure: { healthChange: -15, manaChange: -10, text: 'خطأ! المحارة أغلقت عليك! فقدت بعض الصحة والمانا قبل أن تتحرر. الإجابة: النهر.' },
           },
         },
       ],
     },
   ],
+
   castle: [
     {
       id: 'k1',
       type: 'battle',
       region: 'castle',
-      title: '⚔️ المعركة التمهيدية الأولى',
-      description: 'بوابات قلعة الظلام تفتح ببطء! من الظلام يظهر حارس البوابات - وحش ضخم بسلاح مزدوج! يزمجر: "لا أحد يدخل!"',
+      title: 'حارس البوابات!',
+      description: 'تقف أمام بوابات قلعة الظلام الضخمة. من الظلام يظهر حارس بوابات عملاق بعيون ملتهبة! يزمجر: "لا يدخل هذه القلعة أحد... حياً!"',
       emoji: '👹',
       options: [
         {
@@ -1139,24 +1073,24 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
           statCheck: 'strength',
           statThreshold: 4,
           outcome: {
-            success: { goldChange: 35, healthChange: -25, text: 'بشجاعة أسطورية، هزمت حارس البوابات! البوابات مفتوحة الآن!' },
-            failure: { healthChange: -40, text: 'حارس البوابات أقوى من أي عدو واجهته! أصبت إصابة بالغة.' },
+            success: { goldChange: 35, healthChange: -25, reputationChange: 5, text: 'بشجاعة نادرة، هزمت حارس البوابات! البوابة تفتح لك. وجدت ذهباً وأصبحت أسطورة!' },
+            failure: { healthChange: -40, text: 'حارس البوابات أقوى بكثير! ضربته أرسلتك تطير. لكنك لم تستسلم.' },
           },
         },
         {
           text: '✨ استخدام القدرة الخاصة',
           outcome: {
-            success: { goldChange: 30, text: 'قدرتك الخاصة أوقعت الحارس! عبرت البوابات!' },
-            failure: { healthChange: -30, text: 'الحارس قاوم قدرتك! أصبت لكنه تراجع.' },
+            success: { goldChange: 30, healthChange: -15, text: 'قدرتك أضعفت الحارس بشكل كبير! سقط وترك لك الطريق مفتوحاً وذهباً!' },
+            failure: { healthChange: -30, text: 'قدرتك لم تكن كافية. الحارس أصابك بضربة قوية.' },
           },
         },
         {
-          text: '🗣️ استغلال ضعفه',
-          statCheck: 'intelligence',
-          statThreshold: 4,
+          text: '🗣️ إقناعه بأنك صديق',
+          statCheck: 'charisma',
+          statThreshold: 5,
           outcome: {
-            success: { healthChange: -10, goldChange: 25, text: 'لاحظت أن الحارس أعمى من عينه اليسرى! هاجمت من تلك الناحية ونجحت!' },
-            failure: { healthChange: -30, text: 'لم تجد نقطة ضعف واضحة. أصبت.' },
+            success: { reputationChange: 10, text: 'بكلماتك القوية، أقنعت الحارس بأنك لست عدواً! سمح لك بالمرور باحترام.' },
+            failure: { healthChange: -25, text: 'الحارس لا يقنع بالكلام! هاجمك بضراوة.' },
           },
         },
       ],
@@ -1165,8 +1099,8 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
       id: 'k2',
       type: 'battle',
       region: 'castle',
-      title: '⚔️ المعركة التمهيدية الثانية',
-      description: 'في قلب القلعة، يظهر فارس الظلام بدرع سوداء كاملة! سيفه يشع بطاقة مظلمة! يقول: "أنت آخر من يصل... ولن تخرج."',
+      title: 'فارس الظلام!',
+      description: 'في صالة القلعة المظلمة، يظهر فارس يرتدي درعاً سوداء كالليل! سيفه يشع بضوء أسود. يقول بصوت خافت: "هذا آخر ما ترى..."',
       emoji: '🖤',
       options: [
         {
@@ -1174,24 +1108,24 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
           statCheck: 'strength',
           statThreshold: 5,
           outcome: {
-            success: { goldChange: 40, healthChange: -30, text: 'بمعجزة، حطمت درع فارس الظلام! هو يتراجع والطريق للزعيم النهائي مفتوح!' },
-            failure: { healthChange: -45, text: 'فارس الظلام لا يُقهر! أصبت إصابة خطيرة.' },
+            success: { goldChange: 40, healthChange: -30, reputationChange: 5, text: 'في معركة ملحمية، حطمت درع فارس الظلام! سقط درعه وكشف عن كنز!' },
+            failure: { healthChange: -45, text: 'فارس الظلام أقوى من أي عدو واجهته! كاد أن يقتلك.' },
           },
         },
         {
           text: '✨ استخدام القدرة الخاصة',
           outcome: {
-            success: { goldChange: 35, text: 'قدرتك اخترقت درع الظلام! فارس الظلام سقط!' },
-            failure: { healthChange: -35, text: 'الدرع المظلمة امتصت قدرتك! أصبت بشدة.' },
+            success: { goldChange: 35, healthChange: -20, text: 'قدرتك أحدثت صدعاً في درعه! تراجع وأنت كسبت ذهباً!' },
+            failure: { healthChange: -35, text: 'قدرتك لم تؤثر كثيراً على درعه الأسود. أصبت بجروح بالغة.' },
           },
         },
         {
-          text: '🛡️ الدفاع والانتظار',
+          text: '🛡️ الدفاع والصبر',
           statCheck: 'defense',
           statThreshold: 4,
           outcome: {
-            success: { healthChange: -15, goldChange: 20, text: 'صمدت أمام هجماته حتى أنهك! وجدت فرصة لضربه!' },
-            failure: { healthChange: -30, text: 'دفاعك لم يصمد أمام سيف الظلام! أصبت.' },
+            success: { healthChange: -10, goldChange: 25, text: 'صمدت أمام هجماته! فارس الظلام تعب وأنت استغلت الفرصة وأصبته! وجدت ذهباً.' },
+            failure: { healthChange: -35, text: 'دفاعك لم يصمد أمام قوة فارس الظلام! أصبت بجروح خطيرة.' },
           },
         },
       ],
@@ -1200,33 +1134,42 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
       id: 'k3',
       type: 'battle',
       region: 'castle',
-      title: '👑 المعركة الأخيرة - حارس الكتاب!',
-      description: 'في قاعة العرش، يجلس حارس الكتاب على عرش من ظلام محض! الكتاب الأعظم يطفو خلفه في كرة طاقة مظلمة. ينهض ببطء: "جئتَ من أجل الكتاب... لكنك لن تأخذه!" هذه المعركة الحاسمة!',
+      title: 'المعركة النهائية - حارس الكتاب!',
+      description: 'أخيراً... تقف أمام حارس الكتاب الأعظم! مخلوق ضخم من ظلام محض بعيون حمراء كالجمر. خلفه يتوهج الكتاب الأعظم بضوء ذهبي. يزمجر: "لن تأخذ الكتاب... ما دمت حياً!"',
       emoji: '👿',
       options: [
         {
-          text: '⚔️ الهجوم بكل قوتك!',
+          text: '⚔️ الهجوم النهائي!',
           statCheck: 'strength',
-          statThreshold: 4,
+          statThreshold: 5,
           outcome: {
-            success: { goldChange: 100, text: '🏆 بهجمة أخيرة بطولية، أوقعت حارس الكتاب! الكتاب الأعظم عاد لمملكة نور الحكمة! أنت بطل أسطوري!' },
-            failure: { healthChange: -50, text: 'حارس الكتاب أقوى مما تخيلت! أصبت إصابة حرجة لكنك ما زلت واقفاً.' },
+            success: { goldChange: 100, reputationChange: 20, text: 'بضربة بطولية أخيرة، حطمت حارس الكتاب! الكتاب الأعظم بين يديك الآن! المملكة ستُنقذ!' },
+            failure: { healthChange: -50, text: 'حارس الكتاب أقوى مما تخيلت! ضربته كادت تسحقك. لكنك لم تستسلم!' },
           },
         },
         {
-          text: '✨ استخدام كل قدراتك',
+          text: '✨ استخدام كل قوتك',
           outcome: {
-            success: { goldChange: 100, text: '🏆 بكل ما تملك من قوة وسحر، هزمت حارس الكتاب! الكتاب الأعظم عاد! أنت البطل!' },
-            failure: { healthChange: -45, text: 'قدراتك لم تكفِ! لكنك ما زلت تصارع.' },
+            success: { goldChange: 80, reputationChange: 15, healthChange: -20, text: 'بكل ما تملك من قوة وقدرات، هزمت حارس الكتاب! النور عاد للمملكة!' },
+            failure: { healthChange: -40, text: 'قواك لم تكفِ تماماً! لكنك ما زلت صامداً.' },
           },
         },
         {
-          text: '🗣️ نداء لكل حلفائك',
+          text: '🗣️ نداء الحلفاء والأمل',
           statCheck: 'charisma',
           statThreshold: 4,
           outcome: {
-            success: { goldChange: 100, text: '🏆 حلفاؤك تجمعوا حولك وقاتلوا معك! معاً هزمتم حارس الكتاب! النصر للفريق!' },
-            failure: { healthChange: -40, text: 'حلفاؤك حاولوا لكنهم أصيبوا! يجب أن تكافح وحدك.' },
+            success: { reputationChange: 30, text: 'نداءك وصل لكل حلفائك! معاً حطمتم حارس الكتاب! الوحدة هي القوة الحقيقية! الكتاب الأعظم عاد!' },
+            failure: { healthChange: -35, text: 'حاولت النداء لكن الصوت لم يصل. حارس الكتاب هاجمك.' },
+          },
+        },
+        {
+          text: '🧠 حيلة ذكية',
+          statCheck: 'intelligence',
+          statThreshold: 5,
+          outcome: {
+            success: { knowledgeChange: 20, reputationChange: 20, text: 'استخدمت ذكاءك وخدعت حارس الكتاب! سقط في فخك والكتاب الأعظم أصبح في يديك! المعرفة هي القوة الحقيقية!' },
+            failure: { healthChange: -45, text: 'الحارس لم يُخدع! هاجمك بضراوة. لكنك لم تستسلم.' },
           },
         },
       ],
@@ -1234,138 +1177,87 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
   ],
 };
 
-// ============================================
-// سلبيات الحلفاء
-// ============================================
-export const ALLY_PASSIVES: Record<string, { passiveAbilityAr: string; effectDescription: string }> = {
-  ibrahim: { passiveAbilityAr: 'يضيف 5 نقاط ضرر إضافية', effectDescription: '+5 damage' },
-  abdullah: { passiveAbilityAr: 'يمتص 10 نقاط ضرر كل جولة', effectDescription: '-10 enemy damage' },
-  sufian: { passiveAbilityAr: 'يحصل على ذهب إضافي من كل معركة', effectDescription: '+5 gold per battle' },
-  boukhloua: { passiveAbilityAr: '10% احتمال تحول عدو عشوائي لضفدع', effectDescription: '10% frog chance' },
-  yacine: { passiveAbilityAr: 'يضاعف ضرره عند صحة منخفضة', effectDescription: '2x damage at low HP' },
-  ousama: { passiveAbilityAr: 'يعزز كل الحلفاء +1 إحصائية', effectDescription: '+1 all ally stats' },
-  karim: { passiveAbilityAr: '10% تحول تنين، 5% يحرقك', effectDescription: 'Dragon or burn' },
-  lina: { passiveAbilityAr: 'ترى نتيجة خيار واحد قبل الاختيار', effectDescription: 'Foresight once' },
-  nour: { passiveAbilityAr: 'تشفي 5 صحة كل حدث', effectDescription: '+5 HP per event' },
-  asma: { passiveAbilityAr: 'خصم 50% عند التجار', effectDescription: '50% merchant discount' },
-  maram: { passiveAbilityAr: 'قد تشل عدواً بالكلمات', effectDescription: 'Stun enemy' },
-  aya1: { passiveAbilityAr: 'ترى الحدث القادم مسبقاً', effectDescription: 'See next event' },
-  doua_bentemra: { passiveAbilityAr: '5 ضرر نار إضافي كل جولة', effectDescription: '+5 fire damage' },
-  doua_bensabaha: { passiveAbilityAr: 'تشفي 3 صحة لكل حليف كل حدث', effectDescription: '+3 HP allies' },
-  doua_bensaidan: { passiveAbilityAr: '10% هروب تلقائي من المعارك', effectDescription: '10% auto-flee' },
-  rawan: { passiveAbilityAr: 'قد تستدعي حليفاً حيوانياً', effectDescription: 'Animal ally chance' },
-  bouchra: { passiveAbilityAr: 'تحصل على مساعدة مجانية من NPCs', effectDescription: 'Free NPC help' },
-  feryal: { passiveAbilityAr: 'تكشف نوايا الأعداء', effectDescription: 'Reveal enemy intent' },
-  basma: { passiveAbilityAr: 'تجد أدوات وطعام بضعف المعدل', effectDescription: '2x item finds' },
-  chaimaa: { passiveAbilityAr: 'ترى مسارات سرية', effectDescription: 'Hidden paths' },
-  khaira: { passiveAbilityAr: 'تتجنب مواجهة دون قتال', effectDescription: 'Avoid combat' },
-  fatiha: { passiveAbilityAr: 'تحل أي لغز تلقائياً', effectDescription: 'Auto-solve puzzles' },
-  aya_bouhalassa: { passiveAbilityAr: 'لا تموت في أول مرة (تبقى بـ 1 صحة)', effectDescription: 'Survive once at 1 HP' },
-  aya_boubaker: { passiveAbilityAr: 'نتيجة كوميدية إضافية دائماً في صالحها', effectDescription: 'Funny bonus' },
-  naska: { passiveAbilityAr: 'تستعيد كامل الصحة والمانا نهاية كل منطقة', effectDescription: 'Full restore per region' },
-  boudar: { passiveAbilityAr: 'تضرب أولاً في كل معركة', effectDescription: 'First strike' },
-  benyamina: { passiveAbilityAr: 'يضاعف ضرر الجولة الأولى', effectDescription: '2x first round damage' },
-};
-
-// ============================================
+// ==========================================
 // 20 إنجاز
-// ============================================
+// ==========================================
 export const ACHIEVEMENTS: Achievement[] = [
-  { id: 'dragon_reveal', name: 'كشفت السر', description: 'العب بكريم وتحول لتنين', emoji: '🐉', condition: 'كريم يتحول لتنين' },
-  { id: 'divine_protection', name: 'محمي إلهياً', description: 'أكمل اللعبة كآية بوحلاسة دون موت', emoji: '👼', condition: 'آية بوحلاسة تنهي بدون موت' },
-  { id: 'word_master', name: 'سيد الكلام', description: 'أنهِ 5 معارك بالمفاوضة فقط', emoji: '🗣️', condition: '5 معارك بالمفاوضة' },
-  { id: 'rich', name: 'الثري', description: 'اجمع 200 ذهب', emoji: '💰', condition: '200+ ذهب' },
-  { id: 'legendary_team', name: 'الفريق الأسطوري', description: 'جند 3 حلفاء في رحلة واحدة', emoji: '👥', condition: '3 حلفاء' },
-  { id: 'heroic_death', name: 'الموت البطولي', description: 'مُت أثناء حماية حليف', emoji: '💀', condition: 'موت بحماية حليف' },
-  { id: 'pacifist', name: 'المسالم', description: 'أنهِ اللعبة دون قتال أي عدو مباشرة', emoji: '☮️', condition: 'لا قتال مباشر' },
-  { id: 'chaos_glory', name: 'الفوضى المجيدة', description: 'أكمل اللعبة كآية بوبكر', emoji: '😈', condition: 'آية بوبكر تنهي اللعبة' },
-  { id: 'first_steps', name: 'الخطوات الأولى', description: 'أكمل منطقة واحدة', emoji: '👣', condition: 'أكمل منطقة' },
-  { id: 'explorer', name: 'المستكشف', description: 'وصل إلى 4 مناطق مختلفة', emoji: '🗺️', condition: '4 مناطق' },
-  { id: 'puzzle_master', name: 'حلال الألغاز', description: 'حل 5 ألغاز بنجاح', emoji: '🧩', condition: '5 ألغاز' },
-  { id: 'merchant_friend', name: 'صديق التجار', description: 'اشترِ 5 مرات من التجار', emoji: '🏪', condition: '5 مشتريات' },
-  { id: 'survivor', name: 'الناجي', description: 'بقَ على قيد الحياة بصحة أقل من 10', emoji: '❤️‍🩹', condition: 'HP < 10 وبقاء' },
-  { id: 'knowledge_seeker', name: 'باحث المعرفة', description: 'اجمع 50 معرفة', emoji: '📚', condition: '50+ معرفة' },
-  { id: 'reputation_hero', name: 'بطل السمعة', description: 'وصل لسمعة 80', emoji: '⭐', condition: '80+ سمعة' },
-  { id: 'speed_runner', name: 'سريع البرق', description: 'أكمل اللعبة في أقل من 30 دقيقة', emoji: '⚡', condition: '< 30 دقيقة' },
-  { id: 'ally_ibrahim', name: 'صديق المحارب', description: 'اجعل إبراهيم حليفك', emoji: '⚔️', condition: 'إبراهيم حليف' },
-  { id: 'ally_nour', name: 'في نور الطريق', description: 'اجعل نور حليفتك', emoji: '✨', condition: 'نور حليفة' },
-  { id: 'all_regions', name: 'فاتح العالم', description: 'زر كل المناطق الست', emoji: '🌍', condition: 'كل المناطق' },
-  { id: 'game_complete', name: 'البطل الخارق', description: 'أكمل اللعبة كاملة', emoji: '🏆', condition: 'إكمال اللعبة' },
+  { id: 'dragon_reveal', name: 'كشفت السر', description: 'لعبت بكريم وتحول لتنين', emoji: '🐉' },
+  { id: 'divine_protection', name: 'محمي إلهياً', description: 'أكملت اللعبة كآية بوحلاسة دون موت', emoji: '👼' },
+  { id: 'word_master', name: 'سيد الكلام', description: 'أنهيت 5 معارك بالمفاوضة فقط', emoji: '🗣️' },
+  { id: 'rich', name: 'الثري', description: 'جمعت 200 ذهب', emoji: '💰' },
+  { id: 'legendary_team', name: 'الفريق الأسطوري', description: 'جندت 3 حلفاء في رحلة واحدة', emoji: '👥' },
+  { id: 'puzzle_master', name: 'حلّال الألغاز', description: 'حللت 5 ألغاز', emoji: '🧩' },
+  { id: 'merchant_friend', name: 'صديق التجار', description: 'اشتريت من 5 تجار', emoji: '🏪' },
+  { id: 'knowledge_seeker', name: 'باحث المعرفة', description: 'وصلت معرفتك لـ 50', emoji: '📚' },
+  { id: 'reputation_hero', name: 'بطل السمعة', description: 'وصلت سمعتك لـ 80', emoji: '⭐' },
+  { id: 'explorer', name: 'المستكشف', description: 'وصلت للمنطقة الرابعة', emoji: '🗺️' },
+  { id: 'first_steps', name: 'الخطوات الأولى', description: 'أكملت 3 أحداث', emoji: '👣' },
+  { id: 'ally_ibrahim', name: 'صديق إبراهيم', description: 'جندت إبراهيم كحليف', emoji: '⚔️' },
+  { id: 'ally_nour', name: 'رفيق نور', description: 'جندت نور كحليفة', emoji: '✨' },
+  { id: 'all_regions', name: 'عابر الممالك', description: 'زرت كل المناطق الست', emoji: '🌍' },
+  { id: 'game_complete', name: 'أكملت المغامرة', description: 'أنهيت اللعبة كاملة', emoji: '🏆' },
+  { id: 'chaos_glory', name: 'الفوضى المجيدة', description: 'أكملت اللعبة كآية بوبكر', emoji: '😈' },
+  { id: 'heroic_death', name: 'الموت البطولي', description: 'متَّ أثناء حماية حليف', emoji: '💀' },
+  { id: 'peaceful', name: 'المسالم', description: 'أنهيت اللعبة دون قتال عدو مباشرة', emoji: '☮️' },
+  { id: 'survivor', name: 'الناجي', description: 'نجوت من الموت 3 مرات', emoji: '🩹' },
+  { id: 'speed_runner', name: 'العدّاء', description: 'أكملت اللعبة في أقل من 30 دقيقة', emoji: '⚡' },
 ];
 
-// ============================================
+// ==========================================
 // 8 نهايات
-// ============================================
+// ==========================================
 export const ENDINGS: Ending[] = [
-  { id: 'legendary_hero', name: 'البطل الأسطوري', description: 'أكمل كل المراحل بصحة فوق 70', condition: 'HP > 70 at end', emoji: '🏆' },
-  { id: 'knowledge_guardian', name: 'حارس المعرفة', description: 'أكمل اللعبة بمعرفة 50 أو أكثر', condition: 'Knowledge >= 50', emoji: '📚' },
-  { id: 'nation_leader', name: 'قائد الأمة', description: 'أكمل اللعبة مع 3 حلفاء', condition: '3 allies at end', emoji: '👑' },
-  { id: 'martyr', name: 'الشهيد', description: 'مُت أثناء حماية حليف في المنطقة الأخيرة', condition: 'Die protecting ally in castle', emoji: '💫' },
-  { id: 'mysterious_survivor', name: 'الناجي الغامض', description: 'أكمل اللعبة بالهروب من كل المعارك', condition: 'All battles fled', emoji: '🏃' },
-  { id: 'glorious_chaos', name: 'الفوضى المجيدة', description: 'مخصص لآية بوبكر - أكمل اللعبة بها', condition: 'Complete as Aya Boubaker', emoji: '😈' },
-  { id: 'dragon_legend', name: 'التنين الأسطوري', description: 'مخصص لكريم - أكمل بعد تحول تنين مرتين+', condition: 'Complete as Karim after 2+ dragon transforms', emoji: '🐉' },
-  { id: 'secret_ending', name: 'النهاية السرية', description: '???', condition: 'Rep 100 + Knowledge 40 + 3 allies simultaneously', emoji: '🔮' },
+  { id: 'legendary_hero', name: 'البطل الأسطوري', description: 'أكملت كل المراحل بصحة فوق 70', emoji: '🏆' },
+  { id: 'knowledge_guardian', name: 'حارس المعرفة', description: 'أكملت اللعبة بمعرفة 50 أو أكثر', emoji: '📚' },
+  { id: 'nation_leader', name: 'قائد الأمة', description: 'أكملت اللعبة مع 3 حلفاء', emoji: '👑' },
+  { id: 'martyr', name: 'الشهيد', description: 'متَّ أثناء حماية حليف في المنطقة الأخيرة', emoji: '💀' },
+  { id: 'mysterious_survivor', name: 'الناجي الغامض', description: 'أكملت اللعبة بالهروب من كل المعارك', emoji: '🥷' },
+  { id: 'glorious_chaos', name: 'الفوضى المجيدة', description: 'مخصصة لآية بوبكر', emoji: '😈' },
+  { id: 'dragon_legend', name: 'التنين الأسطوري', description: 'مخصصة لكريم بعد تحوله لتنين مرتين', emoji: '🐉' },
+  { id: 'secret_ending', name: '???', description: '???', emoji: '🔮' },
 ];
 
-// ============================================
-// بيانات التاجر
-// ============================================
+// ==========================================
+// عناصر التاجر
+// ==========================================
 export const MERCHANT_ITEMS: MerchantItem[] = [
-  { name: 'جرعة الشفاء الكبرى', price: 20, emoji: '🧴', effect: 'Restores 50 HP', effectAr: 'تستعيد 50 صحة' },
-  { name: 'بلورة المانا العظيمة', price: 25, emoji: '💎', effect: 'Restores 30 MP', effectAr: 'تستعيد 30 مانا' },
-  { name: 'تعويذة القوة', price: 30, emoji: '💪', effect: '+1 Strength for the journey', effectAr: 'تزيد القوة نقطة واحدة' },
-  { name: 'خاتم الحكمة', price: 30, emoji: '💍', effect: '+1 Intelligence for the journey', effectAr: 'تزيد الذكاء نقطة واحدة' },
-  { name: 'حذاء الحظ', price: 25, emoji: '👟', effect: '+1 Luck for the journey', effectAr: 'تزيد الحظ نقطة واحدة' },
-  { name: 'ترس الدفاع', price: 30, emoji: '🛡️', effect: '+1 Defense for the journey', effectAr: 'تزيد الدفاع نقطة واحدة' },
-  { name: 'إكسير الكاريزما', price: 25, emoji: '🎭', effect: '+1 Charisma for the journey', effectAr: 'تزيد الكاريزما نقطة واحدة' },
-  { name: 'خريطة الكنز', price: 35, emoji: '🗺️', effect: 'Reveals next event details', effectAr: 'تكشف تفاصيل الحدث القادم' },
+  { name: 'جرعة الشفاء', price: 15, emoji: '🧴', effectAr: 'تستعيد 30 صحة', healthChange: 30 },
+  { name: 'بلورة المانا', price: 20, emoji: '💎', effectAr: 'تزيد المانا 25', manaChange: 25 },
+  { name: 'تعويذة الدفاع', price: 25, emoji: '🛡️', effectAr: 'تزيد الدفاع مؤقتاً' },
+  { name: 'خريطة قديمة', price: 10, emoji: '🗺️', effectAr: 'تزيد المعرفة 10', knowledgeChange: 10 },
+  { name: 'خاتم الحظ', price: 30, emoji: '💍', effectAr: 'يمنح حظاً إضافياً' },
+  { name: 'جرعة القوة', price: 18, emoji: '💪', effectAr: 'تزيد القوة مؤقتاً', healthChange: 10 },
 ];
 
-// ============================================
-// ألوان التوهج حسب الفئة
-// ============================================
-export const CLASS_GLOW_COLORS: Record<string, string> = {
-  'محارب': 'shadow-red-500/50 border-red-500',
-  'حارس': 'shadow-red-400/50 border-red-400',
-  'لص': 'shadow-gray-400/50 border-gray-400',
-  'ساحر': 'shadow-purple-500/50 border-purple-500',
-  'مقاتل': 'shadow-red-500/50 border-red-500',
-  'قائد': 'shadow-yellow-500/50 border-yellow-500',
-  'مجهول': 'shadow-gray-600/50 border-gray-600',
-  'حكيمة': 'shadow-purple-400/50 border-purple-400',
-  'مشفيّة': 'shadow-green-400/50 border-green-400',
-  'تاجرة': 'shadow-yellow-400/50 border-yellow-400',
-  'شاعرة': 'shadow-purple-400/50 border-purple-400',
-  'كاهنة': 'shadow-white/50 border-white',
-  'ساحرة النار': 'shadow-red-500/50 border-red-500',
-  'ساحرة الماء': 'shadow-blue-400/50 border-blue-400',
-  'ساحرة الريح': 'shadow-green-400/50 border-green-400',
-  'غابية': 'shadow-green-500/50 border-green-500',
-  'أميرة': 'shadow-yellow-500/50 border-yellow-500',
-  'محققة': 'shadow-purple-400/50 border-purple-400',
-  'فلاحة': 'shadow-green-400/50 border-green-400',
-  'عرّافة': 'shadow-purple-500/50 border-purple-500',
-  'جاسوسة': 'shadow-gray-500/50 border-gray-500',
-  'حكيمة العجوز': 'shadow-purple-400/50 border-purple-400',
-  'ملاك': 'shadow-white/50 border-white',
-  'شيطانة طيبة': 'shadow-gray-700/50 border-gray-700',
-  'راهبة': 'shadow-white/50 border-white',
-  'صياد': 'shadow-green-400/50 border-green-400',
-  'فارس': 'shadow-red-400/50 border-red-400',
+// ==========================================
+// قدرات الحلفاء السلبية
+// ==========================================
+export const ALLY_PASSIVES: Record<string, AllyPassive> = {
+  ibrahim: { passiveAbilityAr: '+5 ضرر إضافي في كل معركة' },
+  abdullah: { passiveAbilityAr: 'يمتص 10 ضرر كل جولة' },
+  sufian: { passiveAbilityAr: 'يجد ذهباً إضافياً عشوائياً' },
+  boukhloua: { passiveAbilityAr: '10% احتمال تحويل عدو لضفدع' },
+  yacine: { passiveAbilityAr: 'ضرر مضاعف عند صحة منخفضة' },
+  ousama: { passiveAbilityAr: '+1 لكل إحصائية للحلفاء' },
+  karim: { passiveAbilityAr: '10% احتمال تحول لتنين يفوز بالمعركة تلقائياً (5% يحرقك)' },
+  lina: { passiveAbilityAr: 'ترى نتيجة خيار واحد قبل الاختيار' },
+  nour: { passiveAbilityAr: '+5 صحة كل حدث' },
+  asma: { passiveAbilityAr: 'خصم 50% عند التجار' },
+  maram: { passiveAbilityAr: 'العدو مشلول جولة إضافية' },
+  aya1: { passiveAbilityAr: 'ترى الحدث القادم مقدماً' },
+  doua_bentemra: { passiveAbilityAr: '+5 ضرر ناري إضافي' },
+  doua_bensabaha: { passiveAbilityAr: '+3 صحة لك وكل حلفاء كل حدث' },
+  doua_bensaidan: { passiveAbilityAr: 'هروب مضمون من أول معركة في المنطقة' },
+  rawan: { passiveAbilityAr: 'حيوانات الغابة تحارب معك' },
+  bouchra: { passiveAbilityAr: 'شخصيات غير عدائية تطيعك مجاناً' },
+  feryal: { passiveAbilityAr: 'تكشف نوايا الشخصيات تلقائياً' },
+  basma: { passiveAbilityAr: 'تجد ذهباً إضافياً بنسبة مضاعفة' },
+  chaimaa: { passiveAbilityAr: 'ترى مسارات سرية إضافية' },
+  khaira: { passiveAbilityAr: 'تتجنب أول مواجهة في كل منطقة' },
+  fatiha: { passiveAbilityAr: 'تحل أي لغز تلقائياً' },
+  aya_bouhalassa: { passiveAbilityAr: 'تبقى بنقطة صحة واحدة بدل الموت مرة واحدة' },
+  aya_boubaker: { passiveAbilityAr: 'نتيجة إضافية كوميدية إيجابية في كل حدث' },
+  naska: { passiveAbilityAr: 'استعادة كاملة للصحة والمانا في نهاية كل منطقة' },
+  boudar: { passiveAbilityAr: 'تضرب أولاً في كل معركة' },
+  benyamina: { passiveAbilityAr: 'ضرر مضاعف في الجولة الأولى' },
 };
-
-// ============================================
-// Helper: Get initial resources
-// ============================================
-export function getInitialResources(): GameResources {
-  return {
-    health: 100,
-    maxHealth: 100,
-    mana: 50,
-    maxMana: 50,
-    gold: 20,
-    reputation: 0,
-    knowledge: 0,
-    allies: [],
-  };
-}

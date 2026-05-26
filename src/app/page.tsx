@@ -16,6 +16,7 @@ import {
   type GameResources,
   type Ally,
   type GameEvent,
+  type EventOption,
 } from '@/lib/game-data';
 
 // ============================================
@@ -51,6 +52,8 @@ interface PlayerSave {
   karimDragonCount: number;
   playedCharacterIds: string[];
   totalEventsCompleted: number;
+  bonusStats: Record<string, number>;
+  deathCount: number;
   endTime?: number;
   startTime?: number;
 }
@@ -105,9 +108,43 @@ function createDefaultSave(name: string): PlayerSave {
     karimDragonCount: 0,
     playedCharacterIds: [],
     totalEventsCompleted: 0,
+    bonusStats: {},
+    deathCount: 0,
     startTime: Date.now(),
   };
 }
+
+function getEffectiveStat(char: Character | undefined, statName: string, bonusStats: Record<string, number>): number {
+  if (!char) return 0;
+  const base = char.stats[statName as keyof typeof char.stats] || 0;
+  const bonus = bonusStats[`${char.id}_${statName}`] || 0;
+  return base + bonus;
+}
+
+function formatTime(ms: number): string {
+  const minutes = Math.floor(ms / 60000);
+  const hours = Math.floor(minutes / 60);
+  if (hours > 0) return `${hours}س ${minutes % 60}د`;
+  return `${minutes}د`;
+}
+
+const STAT_NAMES: Record<string, string> = {
+  strength: 'القوة',
+  intelligence: 'الذكاء',
+  luck: 'الحظ',
+  charisma: 'الكاريزما',
+  mana: 'المانا',
+  defense: 'الدفاع',
+};
+
+const STAT_COLORS: Record<string, string> = {
+  strength: '#ef4444',
+  intelligence: '#8b5cf6',
+  luck: '#22c55e',
+  charisma: '#d4a017',
+  mana: '#3b82f6',
+  defense: '#f97316',
+};
 
 // ============================================
 // Main Component
@@ -118,37 +155,42 @@ export default function GamePage() {
   const [save, setSave] = useState<PlayerSave | null>(null);
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [eventOutcome, setEventOutcome] = useState<string | null>(null);
-  const [isBattle, setIsBattle] = useState(false);
-  const [battleEnemyHp, setBattleEnemyHp] = useState(0);
-  const [battlePlayerDmg, setBattlePlayerDmg] = useState(0);
-  const [showAbility, setShowAbility] = useState(false);
-  const [showAchievement, setShowAchievement] = useState<string | null>(null);
   const [endingId, setEndingId] = useState<string | null>(null);
-  const [selectedSide, setSelectedSide] = useState<string | null>(null);
   const [confirmMain, setConfirmMain] = useState<string | null>(null);
   const [statPointMode, setStatPointMode] = useState(false);
   const [statPoints, setStatPoints] = useState(0);
   const [linaForesight, setLinaForesight] = useState(false);
-  const [linaUsed, setLinaUsed] = useState(false);
-  const [merchantItems, setMerchantItems] = useState<typeof MERCHANT_ITEMS>([]);
-  const [onlineCount] = useState(() => rand(3, 8));
+  const [showAchievement, setShowAchievement] = useState<string | null>(null);
+  const [onlineCount] = useState(() => rand(4, 12));
 
   // Load from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem('moghamara_save');
     if (saved) {
       try {
-        const parsed = JSON.parse(saved);
+        const parsed = JSON.parse(saved) as PlayerSave;
+        if (!parsed.bonusStats) parsed.bonusStats = {};
+        if (parsed.deathCount === undefined) parsed.deathCount = 0;
         queueMicrotask(() => {
           setSave(parsed);
           setPlayerName(parsed.name);
-          setScreen('kingdom');
+          if (parsed.mainCharacterId) {
+            setScreen('kingdom');
+          } else {
+            setScreen('characterSelect');
+          }
         });
-      } catch {}
+      } catch {
+        // corrupted save, ignore
+      }
     }
     const savedFeed = localStorage.getItem('moghamara_feed');
     if (savedFeed) {
-      try { queueMicrotask(() => setFeed(JSON.parse(savedFeed))); } catch {}
+      try {
+        queueMicrotask(() => setFeed(JSON.parse(savedFeed)));
+      } catch {
+        // corrupted feed, ignore
+      }
     }
   }, []);
 
@@ -170,7 +212,7 @@ export default function GamePage() {
   }, []);
 
   // Check achievements
-  const checkAchievements = useCallback((currentSave: PlayerSave) => {
+  const checkAchievements = useCallback((currentSave: PlayerSave): PlayerSave => {
     const newAchievements: string[] = [];
     const s = currentSave;
     const res = s.resources;
@@ -190,6 +232,7 @@ export default function GamePage() {
     if (!s.achievements.includes('all_regions') && s.regionIndex >= 5) newAchievements.push('all_regions');
     if (!s.achievements.includes('game_complete') && s.completions > 0) newAchievements.push('game_complete');
     if (!s.achievements.includes('chaos_glory') && s.mainCharacterId === 'aya_boubaker' && s.completions > 0) newAchievements.push('chaos_glory');
+    if (!s.achievements.includes('survivor') && s.deathCount >= 3) newAchievements.push('survivor');
 
     if (newAchievements.length > 0) {
       const updated = { ...s, achievements: [...s.achievements, ...newAchievements] };
@@ -202,19 +245,53 @@ export default function GamePage() {
     return s;
   }, [addFeed]);
 
-  // Process event outcome
-  const processOutcome = useCallback((option: any, currentSave: PlayerSave) => {
-    let s = { ...currentSave };
-    let res = { ...s.resources };
-    const char = getCharacter(s.mainCharacterId || '');
-    const statVal = option.statCheck && char ? char.stats[option.statCheck] : 10;
-    const threshold = option.statThreshold || 0;
-    const success = !option.statCheck || statCheck(statVal, threshold);
+  // Determine ending
+  const determineEnding = useCallback((s: PlayerSave) => {
+    let ending = 'legendary_hero';
+    const res = s.resources;
 
-    // Ally bonuses for stat checks
+    if (res.reputation >= 100 && res.knowledge >= 40 && s.allies.length >= 3) {
+      ending = 'secret_ending';
+    } else if (s.mainCharacterId === 'aya_boubaker') {
+      ending = 'glorious_chaos';
+    } else if (s.mainCharacterId === 'karim' && s.karimDragonCount >= 2) {
+      ending = 'dragon_legend';
+    } else if (s.battlesFled >= 5 && (s.battlesNegotiated + s.battlesFled) > s.totalEventsCompleted * 0.5) {
+      ending = 'mysterious_survivor';
+    } else if (res.knowledge >= 50) {
+      ending = 'knowledge_guardian';
+    } else if (s.allies.length >= 3) {
+      ending = 'nation_leader';
+    } else if (res.health <= 0 || s.deathCount >= 2) {
+      ending = 'martyr';
+    }
+
+    const score = res.health + res.gold + res.knowledge * 2 + res.reputation + s.allies.length * 50 + s.completions * 100;
+    const updated: PlayerSave = {
+      ...s,
+      completions: s.completions + 1,
+      highestScore: Math.max(s.highestScore, score),
+      endTime: Date.now(),
+    };
+    const withAchievements = checkAchievements(updated);
+    setSave(withAchievements);
+    setEndingId(ending);
+    setScreen('ending');
+    addFeed(`${s.name} أكمل اللعبة! 🏆`, '🎉');
+  }, [checkAchievements, addFeed]);
+
+  // Process event outcome
+  const processOutcome = useCallback((option: EventOption, currentSave: PlayerSave) => {
+    let s = { ...currentSave, resources: { ...currentSave.resources }, allies: [...currentSave.allies] };
+    const res = s.resources;
+    const char = getCharacter(s.mainCharacterId || '');
+    const statVal = option.statCheck && char ? getEffectiveStat(char, option.statCheck, s.bonusStats) : 10;
+    const threshold = option.statThreshold || 0;
+
     let bonusValue = 0;
     if (s.allies.some(a => a.characterId === 'ousama')) bonusValue += 1;
 
+    const success = !option.statCheck || statCheck(statVal + bonusValue, threshold);
     const outcome = success ? option.outcome.success : option.outcome.failure;
 
     res.health = clamp(res.health + (outcome.healthChange || 0), 0, res.maxHealth);
@@ -234,7 +311,7 @@ export default function GamePage() {
       res.health = clamp(res.health + 5, 0, res.maxHealth);
     }
 
-    // Doua bensabaha passive: +3 HP allies per event
+    // Doua bensabaha passive: +3 HP per event
     if (s.allies.some(a => a.characterId === 'doua_bensabaha')) {
       res.health = clamp(res.health + 3, 0, res.maxHealth);
     }
@@ -244,23 +321,26 @@ export default function GamePage() {
       res.gold += Math.floor((outcome.goldChange || 0) * 0.5);
     }
 
+    // Aya boubaker passive: funny positive bonus
+    if (s.mainCharacterId === 'aya_boubaker' && rand(1, 3) === 1) {
+      const bonus = rand(1, 5);
+      res.gold += bonus;
+    }
+
     // Handle ally gain
-    let newAllies = [...s.allies];
     if (outcome.allyGain) {
       const allyChar = getCharacter(outcome.allyGain);
-      if (allyChar && newAllies.length < 3 && !newAllies.some(a => a.characterId === outcome.allyGain)) {
-        // Check aya_bouhalassa and aya_boubaker conflict
-        if (
-          (outcome.allyGain === 'aya_bouhalassa' && newAllies.some(a => a.characterId === 'aya_boubaker')) ||
-          (outcome.allyGain === 'aya_boubaker' && newAllies.some(a => a.characterId === 'aya_bouhalassa'))
-        ) {
+      if (allyChar && s.allies.length < 3 && !s.allies.some(a => a.characterId === outcome.allyGain)) {
+        const hasBouhalassa = s.allies.some(a => a.characterId === 'aya_bouhalassa') || outcome.allyGain === 'aya_bouhalassa';
+        const hasBoubaker = s.allies.some(a => a.characterId === 'aya_boubaker') || outcome.allyGain === 'aya_boubaker';
+        if (hasBouhalassa && hasBoubaker) {
           // They fight - can't add
+          outcome.text += ' لكن آية بوبكر وآية بوحلاسة تشاجرتا ورفضتا العمل معاً!';
         } else {
           const passive = ALLY_PASSIVES[outcome.allyGain];
-          newAllies.push({
+          s.allies.push({
             characterId: outcome.allyGain,
             name: allyChar.name,
-            passiveAbility: passive?.passiveAbilityAr || '',
             passiveAbilityAr: passive?.passiveAbilityAr || '',
           });
         }
@@ -274,7 +354,6 @@ export default function GamePage() {
     let merchantBuys = s.merchantBuys;
     let karimDragonCount = s.karimDragonCount;
 
-    // Check if current event is battle
     const currentEvents = REGION_EVENTS[REGIONS[s.regionIndex]?.id] || [];
     const currentEvent = currentEvents[s.eventIndex];
     if (currentEvent?.type === 'battle') {
@@ -290,25 +369,25 @@ export default function GamePage() {
         karimDragonCount++;
         res.health = clamp(res.health + 50, 0, res.maxHealth);
         res.gold += 30;
+        outcome.text += ' 🐉 كريم تحول لتنين وأحرق العدو! +50 صحة +30 ذهب!';
       }
     }
 
-    // Naska passive: full restore at end of region (check later)
-
     // Death check
     if (res.health <= 0) {
-      // Aya bouhalassa: survive once
       if (s.mainCharacterId === 'aya_bouhalassa' && !s.achievements.includes('divine_protection_survived')) {
         res.health = 1;
-        s = { ...s, achievements: [...s.achievements, 'divine_protection_survived'] };
+        s.achievements = [...s.achievements, 'divine_protection_survived'];
+        s.deathCount++;
+        outcome.text = '👼 الحماية الإلهية أنقذتك! بقيت بنقطة صحة واحدة! ' + outcome.text;
       } else {
-        // Dead - restart region with reduced resources
+        s.deathCount++;
         res.health = Math.floor(res.maxHealth * 0.5);
         res.mana = Math.floor(res.maxMana * 0.5);
         res.gold = Math.max(0, res.gold - 10);
         s.eventIndex = 0;
-        s = { ...s, resources: res, allies: newAllies, battlesFled, battlesNegotiated, puzzlesSolved, merchantBuys, karimDragonCount };
-        setSave(s);
+        s = { ...s, resources: res, allies: s.allies, battlesFled, battlesNegotiated, puzzlesSolved, merchantBuys, karimDragonCount };
+        setSave(checkAchievements(s));
         setEventOutcome('💀 لقد ممت! تعود من بداية المنطقة بموارد أقل...');
         return;
       }
@@ -317,7 +396,6 @@ export default function GamePage() {
     s = {
       ...s,
       resources: res,
-      allies: newAllies,
       battlesFled,
       battlesNegotiated,
       puzzlesSolved,
@@ -331,47 +409,10 @@ export default function GamePage() {
     setEventOutcome(outcome.text);
   }, [checkAchievements]);
 
-  // Determine ending
-  const determineEnding = (s: PlayerSave) => {
-    let ending = 'legendary_hero';
-    const res = s.resources;
-
-    // Secret ending first
-    if (res.reputation >= 100 && res.knowledge >= 40 && s.allies.length >= 3) {
-      ending = 'secret_ending';
-    } else if (s.mainCharacterId === 'aya_boubaker') {
-      ending = 'glorious_chaos';
-    } else if (s.mainCharacterId === 'karim' && s.karimDragonCount >= 2) {
-      ending = 'dragon_legend';
-    } else if (s.battlesFled >= 5 && s.battlesNegotiated + s.battlesFled > s.totalEventsCompleted * 0.5) {
-      ending = 'mysterious_survivor';
-    } else if (res.knowledge >= 50) {
-      ending = 'knowledge_guardian';
-    } else if (s.allies.length >= 3) {
-      ending = 'nation_leader';
-    } else if (res.health > 70) {
-      ending = 'legendary_hero';
-    } else {
-      ending = 'legendary_hero';
-    }
-
-    const score = res.health + res.gold + res.knowledge * 2 + res.reputation + s.allies.length * 50 + s.completions * 100;
-    const updated = {
-      ...s,
-      completions: s.completions + 1,
-      highestScore: Math.max(s.highestScore, score),
-      endTime: Date.now(),
-    };
-    setSave(checkAchievements(updated));
-    setEndingId(ending);
-    setScreen('ending');
-    addFeed(`${s.name} أكمل اللعبة! 🏆`, '🎉');
-  };
-
   // Next event
   const nextEvent = useCallback(() => {
     if (!save) return;
-    const s = { ...save };
+    const s = { ...save, resources: { ...save.resources } };
     const region = REGIONS[s.regionIndex];
     if (!region) return;
 
@@ -380,7 +421,7 @@ export default function GamePage() {
 
     if (nextIdx >= events.length) {
       // Region complete
-      const points = s.totalEventsCompleted > 0 && s.resources.health > 70 ? 2 : 1;
+      const points = s.resources.health > 70 ? 2 : 1;
       setStatPoints(points);
       setStatPointMode(true);
 
@@ -390,10 +431,9 @@ export default function GamePage() {
         s.resources.mana = s.resources.maxMana;
       }
 
-      addFeed(`${s.name} وصل إلى ${getRegionName(s.regionIndex + 1) || 'النهاية'}`, '🗺️');
+      addFeed(`${s.name} أكمل ${getRegionName(s.regionIndex)}`, '✅');
 
       if (s.regionIndex >= 5) {
-        // Game complete!
         determineEnding(s);
         return;
       }
@@ -408,32 +448,33 @@ export default function GamePage() {
       setSave(s);
     }
     setEventOutcome(null);
-    setLinaUsed(false);
-  }, [save, addFeed, checkAchievements, determineEnding]);
+    setLinaForesight(false);
+  }, [save, addFeed, determineEnding]);
 
   // Use special ability
-  const useAbility = () => {
+  const useAbility = useCallback(() => {
     if (!save || save.abilityUsedThisRegion) return;
-    const s = { ...save };
+    const s = { ...save, resources: { ...save.resources } };
     const char = getCharacter(s.mainCharacterId || '');
     if (!char) return;
 
     let abilityText = '';
 
     switch (s.mainCharacterId) {
-      case 'ibrahim': // Double Strike
+      case 'ibrahim':
         s.resources.mana -= 10;
         abilityText = '⚔️ الضربة المزدوجة! ضربت العدو مرتين! (-10 مانا)';
         break;
-      case 'abdullah': // Shield of Faith
+      case 'abdullah':
         abilityText = '🛡️ درع الإيمان! ستمتص الضربة التالية كاملاً!';
         break;
-      case 'sufian': // Stealth Steal
+      case 'sufian': {
         const stolenGold = rand(5, 20);
         s.resources.gold += stolenGold;
         abilityText = `🗡️ السرقة الخفية! سرقت ${stolenGold} ذهب!`;
         break;
-      case 'boukhloua': // Chaos Spell
+      }
+      case 'boukhloua':
         if (rand(1, 2) === 1) {
           s.resources.health = clamp(s.resources.health - 15, 1, s.resources.maxHealth);
           abilityText = '🐸 تحولت لضفدعة لجولة! -15 صحة... لكن على الأقل أنت أخضر!';
@@ -442,18 +483,17 @@ export default function GamePage() {
           abilityText = '💥 تعويذة الفوضى! دمرت العدو وحصلت على 30 ذهب!';
         }
         break;
-      case 'yacine': // Warrior Rage
+      case 'yacine':
         if (s.resources.health < 30) {
           abilityText = '💪 غضب المحارب! ضررك تضاعف لأن صحتك منخفضة!';
         } else {
           abilityText = '💪 غضب المحارب! لكن صحتك ليست منخفضة كفاية...';
         }
         break;
-      case 'ousama': // Command Shout
-        s.allies.forEach(a => { /* boost applied conceptually */ });
+      case 'ousama':
         abilityText = '👑 صرخة القيادة! كل حلفائك تعززوا بنقطة!';
         break;
-      case 'karim': // Sleeping Dragon
+      case 'karim':
         if (rand(1, 10) <= 1) {
           s.karimDragonCount++;
           s.resources.gold += 50;
@@ -462,77 +502,76 @@ export default function GamePage() {
           abilityText = '🐉 لم يتحول كريم هذه المرة... التنين نائم.';
         }
         break;
-      case 'lina': // Foresight
+      case 'lina':
         setLinaForesight(true);
-        setLinaUsed(true);
         abilityText = '📖 البصيرة! يمكنك رؤية نتيجة الخيارات هذه المرة!';
         break;
-      case 'nour': // Instant Heal
+      case 'nour':
         s.resources.health = clamp(s.resources.health + 30, 0, s.resources.maxHealth);
         abilityText = '✨ الشفاء الفوري! +30 صحة!';
         break;
-      case 'asma': // Negotiation
+      case 'asma':
         abilityText = '💰 المفاوضة! ستحصل على خصم 50% عند أي تاجر!';
         break;
-      case 'maram': // Enchanting Poem
+      case 'maram':
         abilityText = '📜 قصيدة السحر! العدو مشلول لـ 3 جولات!';
         break;
-      case 'aya1': // Prophecy
+      case 'aya1':
         abilityText = '🕊️ التنبؤ! ترى الحدث القادم قبل الوصول إليه!';
         break;
-      case 'doua_bentemra': // Inferno
+      case 'doua_bentemra':
         s.resources.mana -= 25;
         abilityText = '🔥 الجحيم! كل الأعداء احترقوا! (-25 مانا)';
         break;
-      case 'doua_bensabaha': // Healing Wave
+      case 'doua_bensabaha':
         s.resources.health = clamp(s.resources.health + 20, 0, s.resources.maxHealth);
         abilityText = '🌊 موجة الشفاء! +20 صحة لك وكل حلفائك!';
         break;
-      case 'doua_bensaidan': // Storm
+      case 'doua_bensaidan':
         abilityText = '💨 العاصفة! يمكنك الهروب من أي معركة فوراً!';
         break;
-      case 'rawan': // Nature Language
+      case 'rawan':
         abilityText = '🌿 لغة الطبيعة! حيوانات الغابة ستحارب معك!';
         break;
-      case 'bouchra': // Royal Authority
+      case 'bouchra':
         abilityText = '👸 السلطة الملكية! الشخصيات غير العدائية ستطيعك!';
         break;
-      case 'feryal': // Investigation
+      case 'feryal':
         abilityText = '🔍 التحقيق! تكشف نوايا ونقاط ضعف كل شخصية!';
         break;
-      case 'basma': // Farm Luck
+      case 'basma':
         s.resources.gold += 15;
         s.resources.health = clamp(s.resources.health + 10, 0, s.resources.maxHealth);
         abilityText = '🌾 حظ المزرعة! وجدت طعام وأدوات! +15 ذهب +10 صحة!';
         break;
-      case 'chaimaa': // Hidden Map
+      case 'chaimaa':
         abilityText = '🗺️ الخريطة المخفية! ترى مسارات سرية إضافية!';
         break;
-      case 'khaira': // Disguise
+      case 'khaira':
         abilityText = '🥷 التنكّر! تتجنب أي مواجهة دون قتال!';
         break;
-      case 'fatiha': // Wisdom of Ages
+      case 'fatiha':
         s.puzzlesSolved++;
         s.resources.knowledge += 10;
         abilityText = '🧓 حكمة الزمن! أي لغز يُحل تلقائياً! +10 معرفة!';
         break;
-      case 'aya_bouhalassa': // Divine Protection
+      case 'aya_bouhalassa':
         abilityText = '👼 الحماية الإلهية! لن تموت في المرة القادمة!';
         break;
-      case 'aya_boubaker': // Funny Chaos
+      case 'aya_boubaker':
         s.resources.gold += rand(10, 30);
         s.resources.health = clamp(s.resources.health + rand(5, 20), 0, s.resources.maxHealth);
         abilityText = '😈 الفوضى المضحكة! شيء غير متوقع ويومض حدث! نتائج إيجابية!';
         break;
-      case 'naska': // Meditation
+      case 'naska':
         s.resources.health = s.resources.maxHealth;
         s.resources.mana = s.resources.maxMana;
         abilityText = '🧘 التأمل! استعادة كاملة للصحة والمانا!';
         break;
-      case 'boudar': // Sniper
+      case 'boudar':
         abilityText = '🏹 القناص! تضرب أولاً في المعركة القادمة!';
         break;
-      case 'benyamina': // Cavalry Charge
+      case 'benyamina':
         abilityText = '🐴 هجوم الفرسان! ضرر مضاعف في الجولة الأولى!';
         break;
       default:
@@ -543,23 +582,20 @@ export default function GamePage() {
     s.resources.mana = Math.max(0, s.resources.mana);
     setSave(checkAchievements(s));
     setEventOutcome(abilityText);
-  };
+  }, [save, checkAchievements]);
 
   // Apply stat point
-  const applyStatPoint = (stat: string) => {
+  const applyStatPoint = useCallback((stat: string) => {
     if (!save || statPoints <= 0) return;
-    const s = { ...save };
+    const s = { ...save, bonusStats: { ...save.bonusStats } };
     const char = getCharacter(s.mainCharacterId || '');
     if (!char) return;
 
-    // We track bonus stats in resources (hack: use knowledge for stat tracking)
-    switch (stat) {
-      case 'strength': char.stats.strength++; break;
-      case 'intelligence': char.stats.intelligence++; break;
-      case 'luck': char.stats.luck++; break;
-      case 'charisma': char.stats.charisma++; break;
-      case 'mana': char.stats.mana++; s.resources.maxMana += 5; break;
-      case 'defense': char.stats.defense++; break;
+    const key = `${char.id}_${stat}`;
+    s.bonusStats[key] = (s.bonusStats[key] || 0) + 1;
+
+    if (stat === 'mana') {
+      s.resources = { ...s.resources, maxMana: s.resources.maxMana + 5 };
     }
 
     const newPoints = statPoints - 1;
@@ -567,28 +603,45 @@ export default function GamePage() {
     if (newPoints <= 0) {
       setStatPointMode(false);
     }
-    setSave({ ...s });
-  };
+    setSave(s);
+  }, [save, statPoints]);
+
+  // Resource Bar Component
+  const ResourceBar = ({ value, max, color, label, emoji }: { value: number; max: number; color: string; label: string; emoji: string }) => (
+    <div className="mb-1">
+      <div className="flex justify-between text-xs mb-0.5">
+        <span style={{ color }}>{emoji} {label}</span>
+        <span style={{ color: '#f0e6d3' }}>{value}/{max}</span>
+      </div>
+      <div className="resource-bar">
+        <div
+          className="h-full rounded-full transition-all duration-500"
+          style={{ width: `${Math.max(2, (value / max) * 100)}%`, background: `linear-gradient(90deg, ${color}, ${color}cc)` }}
+        />
+        <div className="resource-bar-text">{emoji} {value}/{max}</div>
+      </div>
+    </div>
+  );
 
   // ============================================
   // SCREEN: Login
   // ============================================
   const renderLoginScreen = () => (
     <div className="min-h-screen flex flex-col items-center justify-center p-6" style={{ background: 'linear-gradient(180deg, #1a0a2e 0%, #0d0520 50%, #1a0a2e 100%)' }}>
-      <div className="text-center fade-in">
-        <div className="text-6xl mb-4 float-animation">🏰</div>
-        <h1 className="text-4xl md:text-5xl font-bold title-glow mb-2" style={{ color: '#d4a017' }}>
+      <div className="text-center fade-in max-w-md w-full">
+        <div className="text-7xl mb-6 float-animation">🏰</div>
+        <h1 className="text-4xl md:text-5xl font-bold title-glow mb-3" style={{ color: '#d4a017' }}>
           مغامرة الأساتذة
         </h1>
-        <p className="text-xl mb-1" style={{ color: '#a890c0' }}>مملكة نور الحكمة</p>
-        <div className="flex justify-center gap-3 text-2xl mb-8">
+        <p className="text-xl mb-2" style={{ color: '#a890c0' }}>مملكة نور الحكمة</p>
+        <div className="flex justify-center gap-4 text-3xl mb-8">
           <span className="float-animation" style={{ animationDelay: '0.3s' }}>⚔️</span>
           <span className="float-animation" style={{ animationDelay: '0.6s' }}>✨</span>
           <span className="float-animation" style={{ animationDelay: '0.9s' }}>🐉</span>
           <span className="float-animation" style={{ animationDelay: '1.2s' }}>🔮</span>
         </div>
 
-        <div className="scroll-container p-6 max-w-sm mx-auto">
+        <div className="scroll-container p-6 mx-auto">
           <label className="block text-lg mb-3 font-bold" style={{ color: '#d4a017' }}>
             أدخل اسمك الحقيقي
           </label>
@@ -596,10 +649,11 @@ export default function GamePage() {
             type="text"
             value={playerName}
             onChange={(e) => setPlayerName(e.target.value)}
-            className="w-full p-3 rounded-lg text-right text-lg"
+            className="w-full p-3 rounded-lg text-right text-lg outline-none focus:ring-2 focus:ring-[#d4a017]"
             style={{ background: '#1a0a2e', border: '2px solid #6b3fa0', color: '#f0e6d3' }}
             placeholder="اسمك هنا..."
             maxLength={30}
+            dir="rtl"
             onKeyDown={(e) => {
               if (e.key === 'Enter' && playerName.trim()) {
                 const newSave = createDefaultSave(playerName.trim());
@@ -620,14 +674,19 @@ export default function GamePage() {
               }
             }}
             disabled={!playerName.trim()}
+            style={{ opacity: playerName.trim() ? 1 : 0.5 }}
           >
             🗡️ ابدأ المغامرة
           </button>
         </div>
 
-        <p className="mt-6 text-sm" style={{ color: '#a890c0' }}>
-          سُرق الكتاب الأعظم من قلعة الظلام... هل أنت البطل الذي سيستعيده؟
-        </p>
+        <div className="mt-8 p-4 rounded-xl text-sm leading-relaxed" style={{ background: 'rgba(45, 27, 78, 0.5)', border: '1px solid #6b3fa0' }}>
+          <p style={{ color: '#a890c0' }}>
+            📜 سُرق <strong style={{ color: '#d4a017' }}>الكتاب الأعظم</strong> من قلعة الظلام على يد حارس خائن.
+            أنت المغامر الوحيد القادر على عبور المناطق الست واستعادته.
+            اختر شخصيتك بعناية، وجمع الحلفاء، وواجه الأخطار...
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -636,35 +695,36 @@ export default function GamePage() {
   // SCREEN: Character Selection
   // ============================================
   const renderCharacterSelectScreen = () => (
-    <div className="min-h-screen p-4" style={{ background: 'linear-gradient(180deg, #1a0a2e 0%, #0d0520 100%)' }}>
-      <div className="text-center mb-6">
+    <div className="min-h-screen pb-20" style={{ background: 'linear-gradient(180deg, #1a0a2e 0%, #0d0520 100%)' }}>
+      <div className="text-center p-4 mb-2" style={{ background: 'linear-gradient(135deg, #2d1b4e, #1a0a2e)', borderBottom: '3px solid #d4a017' }}>
         <h2 className="text-2xl font-bold title-glow" style={{ color: '#d4a017' }}>
           ⚔️ اختر شخصيتك
         </h2>
-        <p style={{ color: '#a890c0' }}>اختر شخصية رئيسية تمثلك وشخصيات جانبية أيضاً</p>
+        <p className="text-sm" style={{ color: '#a890c0' }}>اختر شخصية رئيسية تمثلك وشخصيات جانبية أيضاً</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl mx-auto">
-        {CHARACTERS.map((char) => {
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4 max-w-6xl mx-auto">
+        {CHARACTERS.map((char, idx) => {
           const isMain = save?.mainCharacterId === char.id;
           const isSide = save?.sideCharacterIds.includes(char.id) || false;
-          const glowClass = getGlowClass(char.classAr);
 
           return (
             <div
               key={char.id}
-              className={`game-card slide-in ${isMain ? 'ring-2 ring-yellow-400 pulse-gold' : ''} ${isSide ? 'ring-1 ring-purple-400' : ''} border-2`}
-              style={{ animationDelay: `${CHARACTERS.indexOf(char) * 0.03}s` }}
+              className={`game-card slide-in ${isMain ? 'ring-2 ring-yellow-400 pulse-gold' : ''} ${isSide ? 'ring-1 ring-purple-400' : ''}`}
+              style={{ animationDelay: `${idx * 0.03}s` }}
             >
               <div className="flex items-center gap-3 mb-3">
                 <span className="text-3xl">{char.emoji}</span>
-                <div>
+                <div className="flex-1">
                   <h3 className="font-bold text-lg" style={{ color: '#d4a017' }}>{char.name}</h3>
-                  <span className="text-sm px-2 py-0.5 rounded-full" style={{ background: '#3d2a5c', color: '#a890c0' }}>
-                    {char.classAr}
-                  </span>
-                  {isMain && <span className="mr-2 text-xs px-2 py-0.5 rounded-full bg-yellow-600 text-yellow-100">⭐ رئيسية</span>}
-                  {isSide && <span className="mr-2 text-xs px-2 py-0.5 rounded-full bg-purple-600 text-purple-100">📋 جانبية</span>}
+                  <div className="flex gap-1 flex-wrap">
+                    <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: '#3d2a5c', color: '#a890c0' }}>
+                      {char.classAr}
+                    </span>
+                    {isMain && <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-600 text-yellow-100">⭐ رئيسية</span>}
+                    {isSide && <span className="text-xs px-2 py-0.5 rounded-full bg-purple-600 text-purple-100">📋 جانبية</span>}
+                  </div>
                 </div>
               </div>
 
@@ -672,7 +732,7 @@ export default function GamePage() {
               <div className="space-y-1 mb-3">
                 {[
                   { label: 'القوة', value: char.stats.strength, color: '#ef4444' },
-                  { label: 'الذكاء', value: char.stats.intelligence, color: '#6b3fa0' },
+                  { label: 'الذكاء', value: char.stats.intelligence, color: '#8b5cf6' },
                   { label: 'الحظ', value: char.stats.luck, color: '#22c55e' },
                   { label: 'الكاريزما', value: char.stats.charisma, color: '#d4a017' },
                   { label: 'المانا', value: char.stats.mana, color: '#3b82f6' },
@@ -681,15 +741,15 @@ export default function GamePage() {
                   <div key={stat.label} className="flex items-center gap-2 text-xs">
                     <span className="w-14" style={{ color: '#a890c0' }}>{stat.label}</span>
                     <div className="flex-1 stat-bar">
-                      <div className="stat-bar-fill" style={{ width: `${(stat.value / 5) * 100}%`, background: stat.color }} />
+                      <div className="stat-bar-fill" style={{ width: `${(stat.value / 6) * 100}%`, background: stat.color }} />
                     </div>
-                    <span style={{ color: stat.color }}>{stat.value}</span>
+                    <span className="w-4 text-center" style={{ color: stat.color }}>{stat.value}</span>
                   </div>
                 ))}
               </div>
 
               {/* Unique Ability */}
-              <div className="mb-2 p-2 rounded-lg text-sm" style={{ background: 'rgba(107, 63, 160, 0.2)', borderRight: '3px solid #d4a017' }}>
+              <div className="mb-2 p-2 rounded-lg text-xs" style={{ background: 'rgba(107, 63, 160, 0.2)', borderRight: '3px solid #d4a017' }}>
                 <span style={{ color: '#d4a017' }}>✨ {char.uniqueAbilityAr}</span>
               </div>
 
@@ -709,7 +769,7 @@ export default function GamePage() {
                     } else {
                       const s = { ...save, mainCharacterId: char.id };
                       if (!s.playedCharacterIds.includes(char.id)) {
-                        s.playedCharacterIds.push(char.id);
+                        s.playedCharacterIds = [...s.playedCharacterIds, char.id];
                       }
                       setSave(s);
                       addFeed(`${save.name} اختار ${char.name} كشخصية رئيسية`, char.emoji);
@@ -722,7 +782,7 @@ export default function GamePage() {
                   className="fantasy-btn-secondary flex-1 text-sm py-2"
                   onClick={() => {
                     if (!save) return;
-                    const s = { ...save };
+                    const s = { ...save, sideCharacterIds: [...save.sideCharacterIds] };
                     if (isSide) {
                       s.sideCharacterIds = s.sideCharacterIds.filter(id => id !== char.id);
                     } else {
@@ -741,16 +801,16 @@ export default function GamePage() {
 
       {/* Confirm Main Dialog */}
       {confirmMain && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.8)' }}>
-          <div className="scroll-container p-6 max-w-sm w-full text-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.85)' }}>
+          <div className="scroll-container p-6 max-w-sm w-full text-center fade-in">
             <h3 className="text-xl font-bold mb-4" style={{ color: '#d4a017' }}>⚠️ تأكيد تغيير الشخصية الرئيسية</h3>
             <p className="mb-4" style={{ color: '#f0e6d3' }}>
-              هل تريد تغيير شخصيتك الرئيسية إلى <strong>{getCharacter(confirmMain)?.name}</strong>؟ هذا القرار نادر التغيير.
+              هل تريد تغيير شخصيتك الرئيسية إلى <strong style={{ color: '#d4a017' }}>{getCharacter(confirmMain)?.name}</strong>؟ هذا القرار نادر التغيير.
             </p>
             <div className="flex gap-3">
               <button className="fantasy-btn flex-1" onClick={() => {
                 if (!save) return;
-                const s = { ...save, mainCharacterId: confirmMain };
+                const s = { ...save, mainCharacterId: confirmMain, playedCharacterIds: [...save.playedCharacterIds] };
                 if (!s.playedCharacterIds.includes(confirmMain)) s.playedCharacterIds.push(confirmMain);
                 setSave(s);
                 addFeed(`${save.name} غيّر شخصيته الرئيسية إلى ${getCharacter(confirmMain)?.name}`, '🔄');
@@ -763,15 +823,17 @@ export default function GamePage() {
       )}
 
       {/* Continue Button */}
-      <div className="text-center mt-8 pb-8">
+      <div className="fixed bottom-0 left-0 right-0 p-4 text-center" style={{ background: 'linear-gradient(180deg, transparent, #0d0520 30%)', zIndex: 40 }}>
         <button
           className="fantasy-btn text-lg px-8 py-3"
           onClick={() => {
             if (save?.mainCharacterId) {
               setScreen('kingdom');
+              addFeed(`${save.name} دخل مملكة نور الحكمة`, '🏰');
             }
           }}
           disabled={!save?.mainCharacterId}
+          style={{ opacity: save?.mainCharacterId ? 1 : 0.5 }}
         >
           🏰 دخول المملكة
         </button>
@@ -819,24 +881,32 @@ export default function GamePage() {
               </div>
               <div className="p-2 rounded-lg" style={{ background: '#1a0a2e' }}>
                 <div style={{ color: '#6b3fa0' }}>🏅 الإنجازات</div>
-                <div className="font-bold" style={{ color: '#f0e6d3' }}>{save?.achievements.length} / 20</div>
+                <div className="font-bold" style={{ color: '#f0e6d3' }}>{save?.achievements.length}/20</div>
               </div>
             </div>
+
+            {/* Mini resource bars */}
+            {save && (
+              <div className="mt-3 space-y-1">
+                <ResourceBar value={save.resources.health} max={save.resources.maxHealth} color="#ef4444" label="الصحة" emoji="❤️" />
+                <ResourceBar value={save.resources.mana} max={save.resources.maxMana} color="#3b82f6" label="المانا" emoji="💎" />
+              </div>
+            )}
           </div>
         </div>
 
         {/* Feed */}
         <div className="px-4 mb-4">
           <h3 className="text-lg font-bold mb-2" style={{ color: '#d4a017' }}>🔔 آخر الأحداث</h3>
-          <div className="space-y-2 max-h-60 overflow-y-auto">
+          <div className="space-y-2 max-h-48 overflow-y-auto">
             {feed.length === 0 ? (
               <p className="text-sm text-center py-4" style={{ color: '#a890c0' }}>لا توجد أحداث بعد</p>
             ) : (
               feed.slice(0, 10).map((item) => (
                 <div key={item.id} className="flex items-center gap-2 p-2 rounded-lg text-sm" style={{ background: '#2d1b4e' }}>
                   <span>{item.emoji}</span>
-                  <span style={{ color: '#f0e6d3' }}>{item.text}</span>
-                  <span className="mr-auto text-xs" style={{ color: '#a890c0' }}>
+                  <span className="flex-1" style={{ color: '#f0e6d3' }}>{item.text}</span>
+                  <span className="text-xs whitespace-nowrap" style={{ color: '#a890c0' }}>
                     {Math.floor((Date.now() - item.time) / 60000)}د
                   </span>
                 </div>
@@ -845,7 +915,7 @@ export default function GamePage() {
           </div>
         </div>
 
-        {/* Rankings (simulated) */}
+        {/* Rankings */}
         <div className="px-4 mb-4">
           <h3 className="text-lg font-bold mb-2" style={{ color: '#d4a017' }}>📊 ترتيب المغامرين</h3>
           <div className="space-y-2">
@@ -854,6 +924,7 @@ export default function GamePage() {
               { name: 'أسامة', region: 5, score: 1200, emoji: '👑' },
               { name: 'إبراهيم', region: 3, score: 850, emoji: '⚔️' },
               { name: 'نور', region: 2, score: 620, emoji: '✨' },
+              { name: 'بوخلوة', region: 1, score: 380, emoji: '🔮' },
             ].sort((a, b) => b.region - a.region || b.score - a.score).map((p, i) => (
               <div key={i} className="flex items-center gap-3 p-3 rounded-lg" style={{ background: '#2d1b4e' }}>
                 <span className="text-xl font-bold" style={{ color: i === 0 ? '#d4a017' : i === 1 ? '#c0c0c0' : i === 2 ? '#cd7f32' : '#a890c0' }}>
@@ -877,8 +948,8 @@ export default function GamePage() {
           </span>
         </div>
 
-        {/* Action Buttons */}
-        <div className="fixed bottom-0 left-0 right-0 p-4 flex justify-center gap-3" style={{ background: 'linear-gradient(180deg, transparent, #1a0a2e)', borderTop: '1px solid #6b3fa0' }}>
+        {/* Bottom Nav */}
+        <div className="fixed bottom-0 left-0 right-0 p-3 flex justify-center gap-3" style={{ background: 'linear-gradient(180deg, transparent, #1a0a2e 30%)', borderTop: '1px solid #6b3fa0', zIndex: 40 }}>
           <button className="fantasy-btn flex-1" onClick={() => setScreen('gameplay')}>
             ⚔️ العب
           </button>
@@ -912,39 +983,57 @@ export default function GamePage() {
           <h3 className="text-xl font-bold" style={{ color: '#d4a017' }}>{save?.name}</h3>
           <p style={{ color: '#a890c0' }}>{char?.name} - {char?.classAr}</p>
 
-          <div className="grid grid-cols-2 gap-3 mt-4 text-sm">
-            <div className="p-2 rounded-lg" style={{ background: '#1a0a2e' }}>
-              <span style={{ color: '#ef4444' }}>❤️ صحة</span>
-              <div className="font-bold">{save?.resources.health}/{save?.resources.maxHealth}</div>
+          {/* Resource Bars */}
+          {save && (
+            <div className="mt-4 space-y-2">
+              <ResourceBar value={save.resources.health} max={save.resources.maxHealth} color="#ef4444" label="الصحة" emoji="❤️" />
+              <ResourceBar value={save.resources.mana} max={save.resources.maxMana} color="#3b82f6" label="المانا" emoji="💎" />
             </div>
-            <div className="p-2 rounded-lg" style={{ background: '#1a0a2e' }}>
-              <span style={{ color: '#3b82f6' }}>💎 مانا</span>
-              <div className="font-bold">{save?.resources.mana}/{save?.resources.maxMana}</div>
-            </div>
+          )}
+
+          <div className="grid grid-cols-3 gap-2 mt-4 text-sm">
             <div className="p-2 rounded-lg" style={{ background: '#1a0a2e' }}>
               <span style={{ color: '#d4a017' }}>💰 ذهب</span>
-              <div className="font-bold">{save?.resources.gold}</div>
+              <div className="font-bold" style={{ color: '#f0e6d3' }}>{save?.resources.gold}</div>
             </div>
             <div className="p-2 rounded-lg" style={{ background: '#1a0a2e' }}>
               <span style={{ color: '#22c55e' }}>⭐ سمعة</span>
-              <div className="font-bold">{save?.resources.reputation}</div>
+              <div className="font-bold" style={{ color: '#f0e6d3' }}>{save?.resources.reputation}</div>
             </div>
             <div className="p-2 rounded-lg" style={{ background: '#1a0a2e' }}>
-              <span style={{ color: '#6b3fa0' }}>📚 معرفة</span>
-              <div className="font-bold">{save?.resources.knowledge}</div>
-            </div>
-            <div className="p-2 rounded-lg" style={{ background: '#1a0a2e' }}>
-              <span style={{ color: '#f97316' }}>📍 منطقة</span>
-              <div className="font-bold">{getRegionName(save?.regionIndex || 0)}</div>
+              <span style={{ color: '#8b5cf6' }}>📚 معرفة</span>
+              <div className="font-bold" style={{ color: '#f0e6d3' }}>{save?.resources.knowledge}</div>
             </div>
           </div>
+
+          {/* Character Stats */}
+          {char && (
+            <div className="mt-4 space-y-1">
+              {[
+                { label: 'القوة', key: 'strength', value: getEffectiveStat(char, 'strength', save?.bonusStats || {}), color: '#ef4444' },
+                { label: 'الذكاء', key: 'intelligence', value: getEffectiveStat(char, 'intelligence', save?.bonusStats || {}), color: '#8b5cf6' },
+                { label: 'الحظ', key: 'luck', value: getEffectiveStat(char, 'luck', save?.bonusStats || {}), color: '#22c55e' },
+                { label: 'الكاريزما', key: 'charisma', value: getEffectiveStat(char, 'charisma', save?.bonusStats || {}), color: '#d4a017' },
+                { label: 'المانا', key: 'mana', value: getEffectiveStat(char, 'mana', save?.bonusStats || {}), color: '#3b82f6' },
+                { label: 'الدفاع', key: 'defense', value: getEffectiveStat(char, 'defense', save?.bonusStats || {}), color: '#f97316' },
+              ].map((stat) => (
+                <div key={stat.key} className="flex items-center gap-2 text-sm">
+                  <span className="w-14 text-right" style={{ color: '#a890c0' }}>{stat.label}</span>
+                  <div className="flex-1 stat-bar">
+                    <div className="stat-bar-fill" style={{ width: `${(stat.value / 8) * 100}%`, background: stat.color }} />
+                  </div>
+                  <span className="w-5 text-center font-bold" style={{ color: stat.color }}>{stat.value}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Allies */}
         <div className="game-card p-4 mb-4">
           <h3 className="font-bold mb-2" style={{ color: '#d4a017' }}>👥 الحلفاء ({save?.allies.length || 0}/3)</h3>
           {save?.allies.length === 0 ? (
-            <p className="text-sm" style={{ color: '#a890c0' }}>لا يوجد حلفاء بعد</p>
+            <p className="text-sm" style={{ color: '#a890c0' }}>لا يوجد حلفاء بعد - ستجدهم في رحلتك!</p>
           ) : (
             <div className="space-y-2">
               {save?.allies.map((ally) => {
@@ -952,7 +1041,7 @@ export default function GamePage() {
                 return (
                   <div key={ally.characterId} className="flex items-center gap-2 p-2 rounded-lg" style={{ background: '#1a0a2e' }}>
                     <span className="text-2xl">{allyChar?.emoji}</span>
-                    <div>
+                    <div className="flex-1">
                       <div className="font-bold text-sm" style={{ color: '#f0e6d3' }}>{ally.name}</div>
                       <div className="text-xs" style={{ color: '#22c55e' }}>{ally.passiveAbilityAr}</div>
                     </div>
@@ -967,13 +1056,11 @@ export default function GamePage() {
         {sideChars.length > 0 && (
           <div className="game-card p-4 mb-4">
             <h3 className="font-bold mb-2" style={{ color: '#d4a017' }}>📋 الشخصيات الجانبية</h3>
-            <div className="space-y-2">
+            <div className="flex gap-2 flex-wrap">
               {sideChars.map(c => (
-                <div key={c.id} className="flex items-center gap-2 p-2 rounded-lg" style={{ background: '#1a0a2e' }}>
-                  <span className="text-2xl">{c.emoji}</span>
-                  <div>
-                    <div className="font-bold text-sm" style={{ color: '#f0e6d3' }}>{c.name} - {c.classAr}</div>
-                  </div>
+                <div key={c.id} className="flex items-center gap-1 p-2 rounded-lg text-sm" style={{ background: '#1a0a2e' }}>
+                  <span>{c.emoji}</span>
+                  <span style={{ color: '#f0e6d3' }}>{c.name}</span>
                 </div>
               ))}
             </div>
@@ -982,35 +1069,47 @@ export default function GamePage() {
 
         {/* Achievements */}
         <div className="game-card p-4 mb-4">
-          <h3 className="font-bold mb-2" style={{ color: '#d4a017' }}>🏅 الإنجازات ({save?.achievements.length || 0}/20)</h3>
-          <div className="grid grid-cols-2 gap-2">
+          <h3 className="font-bold mb-3" style={{ color: '#d4a017' }}>🏅 الإنجازات ({save?.achievements.length || 0}/20)</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {ACHIEVEMENTS.map(ach => {
               const unlocked = save?.achievements.includes(ach.id);
               return (
-                <div key={ach.id} className={`p-2 rounded-lg text-center text-xs ${unlocked ? '' : 'opacity-40'}`} style={{ background: '#1a0a2e' }}>
-                  <span className="text-xl">{ach.emoji}</span>
-                  <div className="font-bold mt-1" style={{ color: unlocked ? '#d4a017' : '#666' }}>{ach.name}</div>
-                  <div style={{ color: unlocked ? '#a890c0' : '#444' }}>{ach.description}</div>
+                <div
+                  key={ach.id}
+                  className={`p-2 rounded-lg text-center text-xs transition-all ${unlocked ? '' : 'opacity-30 grayscale'}`}
+                  style={{ background: '#1a0a2e', border: unlocked ? '1px solid #d4a017' : '1px solid #333' }}
+                >
+                  <span className="text-xl block">{ach.emoji}</span>
+                  <div className="font-bold mt-1" style={{ color: unlocked ? '#d4a017' : '#555' }}>{ach.name}</div>
+                  <div style={{ color: unlocked ? '#a890c0' : '#333' }}>{ach.description}</div>
                 </div>
               );
             })}
           </div>
         </div>
 
-        {/* Stats */}
+        {/* Game Stats */}
         <div className="game-card p-4 mb-4 text-sm">
-          <h3 className="font-bold mb-2" style={{ color: '#d4a017' }}>📊 إحصائيات</h3>
-          <div className="space-y-1" style={{ color: '#f0e6d3' }}>
+          <h3 className="font-bold mb-3" style={{ color: '#d4a017' }}>📊 إحصائيات اللعبة</h3>
+          <div className="space-y-2" style={{ color: '#f0e6d3' }}>
             <div className="flex justify-between"><span>أعلى نقاط:</span><span style={{ color: '#d4a017' }}>{save?.highestScore}</span></div>
             <div className="flex justify-between"><span>مرات الإكمال:</span><span style={{ color: '#d4a017' }}>{save?.completions}</span></div>
             <div className="flex justify-between"><span>أحداث مكتملة:</span><span style={{ color: '#d4a017' }}>{save?.totalEventsCompleted}</span></div>
             <div className="flex justify-between"><span>معارك بالهروب:</span><span style={{ color: '#d4a017' }}>{save?.battlesFled}</span></div>
             <div className="flex justify-between"><span>معارك بالمفاوضة:</span><span style={{ color: '#d4a017' }}>{save?.battlesNegotiated}</span></div>
+            <div className="flex justify-between"><span>ألغاز محلولة:</span><span style={{ color: '#d4a017' }}>{save?.puzzlesSolved}</span></div>
+            <div className="flex justify-between"><span>مرات الموت:</span><span style={{ color: '#ef4444' }}>{save?.deathCount}</span></div>
+            <div className="flex justify-between">
+              <span>وقت اللعب:</span>
+              <span style={{ color: '#d4a017' }}>
+                {save?.startTime ? formatTime(Date.now() - save.startTime) : '0د'}
+              </span>
+            </div>
           </div>
         </div>
 
         {/* Back Button */}
-        <div className="fixed bottom-0 left-0 right-0 p-4" style={{ background: 'linear-gradient(180deg, transparent, #1a0a2e)' }}>
+        <div className="fixed bottom-0 left-0 right-0 p-3" style={{ background: 'linear-gradient(180deg, transparent, #1a0a2e 30%)', zIndex: 40 }}>
           <button className="fantasy-btn w-full" onClick={() => setScreen('kingdom')}>
             🏰 العودة للمملكة
           </button>
@@ -1034,29 +1133,36 @@ export default function GamePage() {
     if (statPointMode) {
       return (
         <div className="min-h-screen flex flex-col items-center justify-center p-6" style={{ background: 'linear-gradient(180deg, #1a0a2e 0%, #0d0520 100%)' }}>
-          <div className="scroll-container p-6 max-w-md w-full text-center">
-            <h2 className="text-2xl font-bold mb-2" style={{ color: '#d4a017' }}>🎉 منطقة مكتملة!</h2>
-            <p className="mb-4" style={{ color: '#22c55e' }}>لقد أكملت {region?.name}!</p>
+          <div className="scroll-container p-6 max-w-md w-full text-center fade-in">
+            <span className="text-5xl block mb-4 float-animation">🎉</span>
+            <h2 className="text-2xl font-bold mb-2" style={{ color: '#d4a017' }}>منطقة مكتملة!</h2>
+            <p className="mb-2" style={{ color: '#22c55e' }}>لقد أكملت {region?.name} {region?.emoji}</p>
             <p className="mb-4" style={{ color: '#f0e6d3' }}>لديك {statPoints} نقطة إحصائية. اختر أين تضعها:</p>
 
             {char && [
-              { key: 'strength', label: 'القوة', value: char.stats.strength, color: '#ef4444' },
-              { key: 'intelligence', label: 'الذكاء', value: char.stats.intelligence, color: '#6b3fa0' },
-              { key: 'luck', label: 'الحظ', value: char.stats.luck, color: '#22c55e' },
-              { key: 'charisma', label: 'الكاريزما', value: char.stats.charisma, color: '#d4a017' },
-              { key: 'mana', label: 'المانا', value: char.stats.mana, color: '#3b82f6' },
-              { key: 'defense', label: 'الدفاع', value: char.stats.defense, color: '#f97316' },
+              { key: 'strength', label: 'القوة', value: getEffectiveStat(char, 'strength', save.bonusStats), color: '#ef4444' },
+              { key: 'intelligence', label: 'الذكاء', value: getEffectiveStat(char, 'intelligence', save.bonusStats), color: '#8b5cf6' },
+              { key: 'luck', label: 'الحظ', value: getEffectiveStat(char, 'luck', save.bonusStats), color: '#22c55e' },
+              { key: 'charisma', label: 'الكاريزما', value: getEffectiveStat(char, 'charisma', save.bonusStats), color: '#d4a017' },
+              { key: 'mana', label: 'المانا', value: getEffectiveStat(char, 'mana', save.bonusStats), color: '#3b82f6' },
+              { key: 'defense', label: 'الدفاع', value: getEffectiveStat(char, 'defense', save.bonusStats), color: '#f97316' },
             ].map(stat => (
               <button
                 key={stat.key}
-                className="w-full text-right p-3 rounded-lg mb-2 flex justify-between items-center"
-                style={{ background: '#1a0a2e', border: `1px solid ${stat.color}`, color: '#f0e6d3' }}
+                className="w-full text-right p-3 rounded-lg mb-2 flex justify-between items-center transition-all hover:scale-[1.02]"
+                style={{ background: '#1a0a2e', border: `2px solid ${stat.color}`, color: '#f0e6d3' }}
                 onClick={() => applyStatPoint(stat.key)}
               >
                 <span>{stat.label} ({stat.value})</span>
                 <span style={{ color: stat.color }}>+1 ➕</span>
               </button>
             ))}
+
+            {statPoints <= 0 && (
+              <button className="fantasy-btn w-full mt-4" onClick={() => setStatPointMode(false)}>
+                ➡️ المتابعة
+              </button>
+            )}
           </div>
         </div>
       );
@@ -1066,9 +1172,10 @@ export default function GamePage() {
     if (!currentEvent) {
       return (
         <div className="min-h-screen flex flex-col items-center justify-center p-6" style={{ background: 'linear-gradient(180deg, #1a0a2e 0%, #0d0520 100%)' }}>
-          <div className="scroll-container p-6 max-w-md w-full text-center">
+          <div className="scroll-container p-6 max-w-md w-full text-center fade-in">
             <span className="text-5xl block mb-4">🏆</span>
             <h2 className="text-2xl font-bold mb-4" style={{ color: '#d4a017' }}>اكتملت المغامرة!</h2>
+            <p className="mb-4" style={{ color: '#a890c0' }}>استكشفت كل المناطق المتاحة</p>
             <button className="fantasy-btn w-full" onClick={() => setScreen('kingdom')}>🏰 العودة للمملكة</button>
           </div>
         </div>
@@ -1086,29 +1193,13 @@ export default function GamePage() {
             <span className="mr-auto text-xs" style={{ color: '#a890c0' }}>{region?.emoji} {region?.name}</span>
           </div>
 
-          {/* HP Bar */}
-          <div className="resource-bar mb-1">
-            <div className="h-full rounded-full transition-all" style={{
-              width: `${(res.health / res.maxHealth) * 100}%`,
-              background: 'linear-gradient(90deg, #dc2626, #ef4444)',
-            }} />
-            <div className="resource-bar-text">❤️ {res.health}/{res.maxHealth}</div>
-          </div>
+          <ResourceBar value={res.health} max={res.maxHealth} color="#ef4444" label="الصحة" emoji="❤️" />
+          <ResourceBar value={res.mana} max={res.maxMana} color="#3b82f6" label="المانا" emoji="💎" />
 
-          {/* MP Bar */}
-          <div className="resource-bar mb-2">
-            <div className="h-full rounded-full transition-all" style={{
-              width: `${(res.mana / res.maxMana) * 100}%`,
-              background: 'linear-gradient(90deg, #2563eb, #3b82f6)',
-            }} />
-            <div className="resource-bar-text">💎 {res.mana}/{res.maxMana}</div>
-          </div>
-
-          {/* Resources Row */}
-          <div className="flex gap-3 text-xs">
+          <div className="flex gap-3 text-xs mt-2">
             <span style={{ color: '#d4a017' }}>💰 {res.gold}</span>
             <span style={{ color: '#22c55e' }}>⭐ {res.reputation}</span>
-            <span style={{ color: '#6b3fa0' }}>📚 {res.knowledge}</span>
+            <span style={{ color: '#8b5cf6' }}>📚 {res.knowledge}</span>
             <span style={{ color: '#f97316' }}>👥 {save.allies.length}/3</span>
           </div>
         </div>
@@ -1117,6 +1208,20 @@ export default function GamePage() {
         <div className="px-3 py-1 text-center text-xs" style={{ background: '#1a0a2e', color: '#a890c0' }}>
           الحدث {save.eventIndex + 1} من {events.length} — {region?.name} {region?.emoji}
         </div>
+
+        {/* Ally Indicators */}
+        {save.allies.length > 0 && (
+          <div className="flex gap-1 px-3 py-1" style={{ background: 'rgba(45, 27, 78, 0.5)' }}>
+            {save.allies.map(ally => {
+              const allyChar = getCharacter(ally.characterId);
+              return (
+                <span key={ally.characterId} className="text-lg" title={ally.name}>
+                  {allyChar?.emoji || '👤'}
+                </span>
+              );
+            })}
+          </div>
+        )}
 
         {/* Main Event Area */}
         <div className="flex-1 p-4 overflow-y-auto">
@@ -1127,7 +1232,7 @@ export default function GamePage() {
                 <div className="text-center mb-3">
                   <span className="text-4xl block mb-2">{currentEvent.emoji}</span>
                   <h3 className="text-xl font-bold" style={{ color: '#d4a017' }}>{currentEvent.title}</h3>
-                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: '#3d2a5c', color: '#a890c0' }}>
+                  <span className="text-xs px-3 py-1 rounded-full inline-block mt-1" style={{ background: '#3d2a5c', color: '#a890c0' }}>
                     {currentEvent.type === 'battle' ? '⚔️ معركة' :
                      currentEvent.type === 'puzzle' ? '🧩 لغز' :
                      currentEvent.type === 'merchant' ? '🏪 تاجر' :
@@ -1137,26 +1242,33 @@ export default function GamePage() {
                      '🔮 حدث سري'}
                   </span>
                 </div>
-                <p className="text-lg leading-relaxed mb-4" style={{ color: '#f0e6d3' }}>
+                <p className="text-base leading-relaxed mb-4" style={{ color: '#f0e6d3' }}>
                   {currentEvent.description}
                 </p>
 
                 {/* Lina Foresight */}
-                {linaForesight && currentEvent.options.map((opt, i) => (
-                  <div key={i} className="text-xs p-2 rounded-lg mb-1" style={{ background: 'rgba(107, 63, 160, 0.3)', color: '#d4a017' }}>
-                    👁️ خيار {i + 1}: {opt.outcome.success.text.substring(0, 60)}...
+                {linaForesight && (
+                  <div className="mb-4 p-3 rounded-lg" style={{ background: 'rgba(212, 160, 23, 0.15)', border: '1px solid #d4a017' }}>
+                    <p className="text-xs font-bold mb-2" style={{ color: '#d4a017' }}>👁️ بصيرة لينا - نتيجة الخيارات:</p>
+                    {currentEvent.options.map((opt, i) => (
+                      <div key={i} className="text-xs p-1.5 rounded mb-1" style={{ background: 'rgba(107, 63, 160, 0.3)', color: '#d4a017' }}>
+                        خيار {i + 1}: {opt.outcome.success.text.substring(0, 50)}...
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
 
                 {/* Battle Enemy Info */}
                 {currentEvent.type === 'battle' && (() => {
                   const enemies = REGION_ENEMIES[region?.id] || [];
                   const enemy = enemies[save.eventIndex % enemies.length];
                   return enemy ? (
-                    <div className="p-3 rounded-lg mb-4 text-center" style={{ background: 'rgba(220, 38, 38, 0.2)', border: '1px solid #dc2626' }}>
+                    <div className="p-3 rounded-lg mb-4 text-center" style={{ background: 'rgba(220, 38, 38, 0.15)', border: '1px solid #dc2626' }}>
                       <span className="text-3xl block mb-1">{enemy.emoji}</span>
                       <div className="font-bold" style={{ color: '#ef4444' }}>{enemy.name}</div>
-                      <div className="text-sm" style={{ color: '#f0e6d3' }}>❤️ {enemy.health} | ⚔️ ضرر: {enemy.damage} | 💰 جائزة: {enemy.goldReward}</div>
+                      <div className="text-sm" style={{ color: '#f0e6d3' }}>
+                        ❤️ {enemy.health} | ⚔️ ضرر: {enemy.damage} | 💰 جائزة: {enemy.goldReward}
+                      </div>
                     </div>
                   ) : null;
                 })()}
@@ -1166,7 +1278,7 @@ export default function GamePage() {
                   {currentEvent.options.map((option, i) => (
                     <button
                       key={i}
-                      className="w-full text-right p-4 rounded-lg transition-all hover:scale-[1.02]"
+                      className="w-full text-right p-4 rounded-lg transition-all hover:scale-[1.02] active:scale-[0.98]"
                       style={{
                         background: 'linear-gradient(135deg, #3d2a5c, #2d1b4e)',
                         border: '2px solid #6b3fa0',
@@ -1175,14 +1287,15 @@ export default function GamePage() {
                       }}
                       onClick={() => processOutcome(option, save)}
                     >
-                      <span className="text-lg">{option.text}</span>
+                      <span className="text-base">{option.text}</span>
                       {option.statCheck && (
                         <div className="text-xs mt-1" style={{ color: '#a890c0' }}>
-                          يتطلب: {option.statCheck === 'strength' ? 'قوة' :
-                            option.statCheck === 'intelligence' ? 'ذكاء' :
-                            option.statCheck === 'luck' ? 'حظ' :
-                            option.statCheck === 'charisma' ? 'كاريزما' :
-                            option.statCheck === 'mana' ? 'مانا' : 'دفاع'} {option.statThreshold}+
+                          يتطلب: {STAT_NAMES[option.statCheck] || option.statCheck} {option.statThreshold}+
+                          {char && (
+                            <span style={{ color: '#22c55e' }}>
+                              {' '}(لديك: {getEffectiveStat(char, option.statCheck, save.bonusStats)})
+                            </span>
+                          )}
                         </div>
                       )}
                     </button>
@@ -1193,11 +1306,11 @@ export default function GamePage() {
               {/* Special Ability Button */}
               {!save.abilityUsedThisRegion && (
                 <button
-                  className="w-full p-3 rounded-lg text-center font-bold mb-3"
+                  className="w-full p-3 rounded-lg text-center font-bold mb-3 transition-all hover:scale-[1.02]"
                   style={{ background: 'linear-gradient(135deg, #6b3fa0, #4d1d8e)', border: '2px solid #d4a017', color: '#d4a017' }}
                   onClick={useAbility}
                 >
-                  ✨ استخدام القدرة الخاصة: {char?.uniqueAbilityAr?.split(' - ')[0]}
+                  ✨ القدرة الخاصة: {char?.uniqueAbilityAr?.split(' - ')[0] || 'قدرة'}
                 </button>
               )}
             </div>
@@ -1205,12 +1318,19 @@ export default function GamePage() {
             /* Outcome Display */
             <div className="fade-in">
               <div className="scroll-container p-6 text-center">
-                <span className="text-5xl block mb-4">{eventOutcome.includes('💀') ? '💀' : eventOutcome.includes('🏆') ? '🏆' : eventOutcome.includes('🔥') ? '🔥' : '✨'}</span>
+                <span className="text-5xl block mb-4">
+                  {eventOutcome.includes('💀') ? '💀' :
+                   eventOutcome.includes('🏆') ? '🏆' :
+                   eventOutcome.includes('🔥') ? '🔥' :
+                   eventOutcome.includes('🐉') ? '🐉' :
+                   eventOutcome.includes('🐸') ? '🐸' :
+                   eventOutcome.includes('👼') ? '👼' : '✨'}
+                </span>
                 <p className="text-lg leading-relaxed mb-6" style={{ color: '#f0e6d3' }}>
                   {eventOutcome}
                 </p>
                 <button className="fantasy-btn w-full text-lg" onClick={nextEvent}>
-                  {save.eventIndex >= (events.length - 1) ? '🗺️ المنطقة التالية' : '➡️ الحدث التالي'}
+                  {save.eventIndex >= (events.length - 1) ? '🗺️ المنطقة التالية' : '➡️ المتابعة'}
                 </button>
               </div>
             </div>
@@ -1231,14 +1351,15 @@ export default function GamePage() {
               if (confirm('هل تريد إعادة اللعبة من البداية؟')) {
                 const newSave = createDefaultSave(save.name);
                 newSave.mainCharacterId = save.mainCharacterId;
-                newSave.sideCharacterIds = save.sideCharacterIds;
-                newSave.achievements = save.achievements;
+                newSave.sideCharacterIds = [...save.sideCharacterIds];
+                newSave.achievements = [...save.achievements];
                 newSave.highestScore = save.highestScore;
                 newSave.completions = save.completions;
                 newSave.firstLogin = save.firstLogin;
-                newSave.playedCharacterIds = save.playedCharacterIds;
+                newSave.playedCharacterIds = [...save.playedCharacterIds];
                 setSave(newSave);
                 setEventOutcome(null);
+                setStatPointMode(false);
                 addFeed(`${save.name} بدأ مغامرة جديدة!`, '🔄');
               }
             }}
@@ -1258,7 +1379,7 @@ export default function GamePage() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6" style={{ background: 'linear-gradient(180deg, #1a0a2e 0%, #0d0520 50%, #1a0a2e 100%)' }}>
         <div className="scroll-container p-8 max-w-md w-full text-center fade-in">
-          <span className="text-6xl block mb-4 float-animation">{ending?.emoji || '🏆'}</span>
+          <span className="text-7xl block mb-6 float-animation">{ending?.emoji || '🏆'}</span>
           <h2 className="text-3xl font-bold mb-4 title-glow" style={{ color: '#d4a017' }}>
             {ending?.name || 'النهاية'}
           </h2>
@@ -1266,36 +1387,42 @@ export default function GamePage() {
 
           {save && (
             <div className="mt-6 p-4 rounded-lg text-sm" style={{ background: '#1a0a2e' }}>
+              <h4 className="font-bold mb-2" style={{ color: '#d4a017' }}>📊 ملخص المغامرة</h4>
               <div className="space-y-1" style={{ color: '#f0e6d3' }}>
-                <div>❤️ الصحة النهائية: {save.resources.health}</div>
-                <div>📚 المعرفة: {save.resources.knowledge}</div>
-                <div>⭐ السمعة: {save.resources.reputation}</div>
-                <div>💰 الذهب: {save.resources.gold}</div>
-                <div>👥 الحلفاء: {save.allies.length}</div>
-                <div>🏅 الإنجازات: {save.achievements.length}/20</div>
+                <div className="flex justify-between"><span>❤️ الصحة النهائية:</span><span style={{ color: '#ef4444' }}>{save.resources.health}</span></div>
+                <div className="flex justify-between"><span>📚 المعرفة:</span><span style={{ color: '#8b5cf6' }}>{save.resources.knowledge}</span></div>
+                <div className="flex justify-between"><span>⭐ السمعة:</span><span style={{ color: '#22c55e' }}>{save.resources.reputation}</span></div>
+                <div className="flex justify-between"><span>💰 الذهب:</span><span style={{ color: '#d4a017' }}>{save.resources.gold}</span></div>
+                <div className="flex justify-between"><span>👥 الحلفاء:</span><span style={{ color: '#d4a017' }}>{save.allies.length}</span></div>
+                <div className="flex justify-between"><span>🏅 الإنجازات:</span><span style={{ color: '#d4a017' }}>{save.achievements.length}/20</span></div>
+                <div className="flex justify-between"><span>⭐ النتيجة:</span><span style={{ color: '#d4a017', fontWeight: 'bold', fontSize: '1.1rem' }}>{save.highestScore}</span></div>
+                {save.startTime && (
+                  <div className="flex justify-between"><span>⏱️ وقت اللعب:</span><span style={{ color: '#d4a017' }}>{formatTime(Date.now() - save.startTime)}</span></div>
+                )}
               </div>
             </div>
           )}
 
           <div className="mt-6 space-y-3">
-            <button className="fantasy-btn w-full" onClick={() => {
+            <button className="fantasy-btn w-full text-lg" onClick={() => {
               if (save) {
                 const newSave = createDefaultSave(save.name);
                 newSave.mainCharacterId = save.mainCharacterId;
-                newSave.sideCharacterIds = save.sideCharacterIds;
-                newSave.achievements = save.achievements;
+                newSave.sideCharacterIds = [...save.sideCharacterIds];
+                newSave.achievements = [...save.achievements];
                 newSave.highestScore = save.highestScore;
                 newSave.completions = save.completions;
                 newSave.firstLogin = save.firstLogin;
-                newSave.playedCharacterIds = save.playedCharacterIds;
+                newSave.playedCharacterIds = [...save.playedCharacterIds];
                 setSave(newSave);
                 setEventOutcome(null);
                 setEndingId(null);
+                setStatPointMode(false);
                 setScreen('gameplay');
                 addFeed(`${save.name} بدأ مغامرة جديدة!`, '🔄');
               }
             }}>
-              🔄 مغامرة جديدة
+              🔄 العب مرة أخرى
             </button>
             <button className="fantasy-btn-secondary w-full" onClick={() => {
               setEndingId(null);
