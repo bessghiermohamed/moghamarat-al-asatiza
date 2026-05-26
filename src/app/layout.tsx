@@ -5,9 +5,6 @@ import { Toaster } from "@/components/ui/toaster";
 export const metadata: Metadata = {
   title: "مغامرة الأساتذة - RPG",
   description: "لعبة مغامرة أسطورية عربية - مملكة نور الحكمة",
-  icons: {
-    icon: "🏰",
-  },
 };
 
 export default function RootLayout({

@@ -131,6 +131,7 @@ export default function GamePage() {
   const [linaForesight, setLinaForesight] = useState(false);
   const [linaUsed, setLinaUsed] = useState(false);
   const [merchantItems, setMerchantItems] = useState<typeof MERCHANT_ITEMS>([]);
+  const [onlineCount] = useState(() => rand(3, 8));
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -652,7 +653,7 @@ export default function GamePage() {
           return (
             <div
               key={char.id}
-              className={`game-card slide-in ${isMain ? 'ring-2 ring-yellow-400 pulse-gold' : ''} ${isSide ? 'ring-1 ring-purple-400' : ''}`}
+              className={`game-card slide-in ${isMain ? 'ring-2 ring-yellow-400 pulse-gold' : ''} ${isSide ? 'ring-1 ring-purple-400' : ''} border-2`}
               style={{ animationDelay: `${CHARACTERS.indexOf(char) * 0.03}s` }}
             >
               <div className="flex items-center gap-3 mb-3">
@@ -790,7 +791,7 @@ export default function GamePage() {
     return (
       <div className="min-h-screen pb-24" style={{ background: 'linear-gradient(180deg, #1a0a2e 0%, #0d0520 100%)' }}>
         {/* Header */}
-        <div className="p-4 text-center" style={{ background: 'linear-gradient(135deg, #2d1b4e, #1a0a2e)', borderBottom: '2px solid #d4a017' }}>
+        <div className="p-4 text-center" style={{ background: 'linear-gradient(135deg, #2d1b4e, #1a0a2e)', borderBottom: '3px solid #d4a017', boxShadow: '0 4px 15px rgba(212, 160, 23, 0.3)' }}>
           <h1 className="text-2xl font-bold title-glow" style={{ color: '#d4a017' }}>
             🏰 لوحة مملكة نور الحكمة
           </h1>
@@ -872,7 +873,7 @@ export default function GamePage() {
         {/* Online count */}
         <div className="px-4 mb-4 text-center">
           <span className="text-sm px-4 py-2 rounded-full" style={{ background: '#2d1b4e', color: '#22c55e' }}>
-            👥 المتصلون الآن: {rand(3, 8)}
+            👥 المتصلون الآن: {onlineCount}
           </span>
         </div>
 
