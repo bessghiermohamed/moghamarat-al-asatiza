@@ -161,7 +161,7 @@ export default function GamePage() {
   const [statPoints, setStatPoints] = useState(0);
   const [linaForesight, setLinaForesight] = useState(false);
   const [showAchievement, setShowAchievement] = useState<string | null>(null);
-  const [onlineCount] = useState(() => rand(4, 12));
+  const [onlineCount] = useState(1);
 
   // Load from localStorage on mount
   useEffect(() => {
