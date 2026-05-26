@@ -30,6 +30,7 @@ export interface Region {
   eventCount: number;
   specialDanger?: string;
   emoji: string;
+  backgroundImage?: string;
 }
 
 export interface GameResources {
@@ -81,6 +82,7 @@ export interface Enemy {
   damage: number;
   goldReward: number;
   emoji: string;
+  image?: string;
 }
 
 export interface Achievement {
@@ -416,6 +418,7 @@ export const REGIONS: Region[] = [
     description: 'المنطقة البداية المليئة بالأشجار العملاقة والمخلوقات الغريبة',
     eventCount: 3,
     emoji: '🌲',
+    backgroundImage: '/moghamarat-al-asatiza/game-assets/regions/forest.png',
   },
   {
     id: 'city',
@@ -423,6 +426,7 @@ export const REGIONS: Region[] = [
     description: 'المدينة الرئيسية حيث يعيش التجار والحرفيون وكثير من الشخصيات المعروفة',
     eventCount: 4,
     emoji: '🏙️',
+    backgroundImage: '/moghamarat-al-asatiza/game-assets/regions/city.png',
   },
   {
     id: 'mountains',
@@ -430,6 +434,7 @@ export const REGIONS: Region[] = [
     description: 'جبال شاهقة مليئة بالألغاز والكهوف',
     eventCount: 3,
     emoji: '⛰️',
+    backgroundImage: '/moghamarat-al-asatiza/game-assets/regions/mountains.png',
   },
   {
     id: 'desert',
@@ -438,6 +443,7 @@ export const REGIONS: Region[] = [
     eventCount: 4,
     specialDanger: 'فقدان معرفة عشوائية إذا لم تُحل لغز الصحراء',
     emoji: '🏜️',
+    backgroundImage: '/moghamarat-al-asatiza/game-assets/regions/desert.png',
   },
   {
     id: 'ocean',
@@ -445,6 +451,7 @@ export const REGIONS: Region[] = [
     description: 'منطقة تحت الماء غامضة فيها مخلوقات نادرة وكنوز',
     eventCount: 3,
     emoji: '🌊',
+    backgroundImage: '/moghamarat-al-asatiza/game-assets/regions/ocean.png',
   },
   {
     id: 'castle',
@@ -452,17 +459,20 @@ export const REGIONS: Region[] = [
     description: 'مقر العدو النهائي - معركتان تمهيديتان ثم المعركة الأخيرة ضد حارس الكتاب',
     eventCount: 3,
     emoji: '🏰',
+    backgroundImage: '/moghamarat-al-asatiza/game-assets/regions/castle.png',
   },
 ];
 
 // ==========================================
 // الأعداء حسب المنطقة
 // ==========================================
+const IMG = '/moghamarat-al-asatiza/game-assets/monsters';
+
 export const REGION_ENEMIES: Record<string, Enemy[]> = {
   forest: [
-    { name: 'ذئب الظلام', health: 30, damage: 10, goldReward: 8, emoji: '🐺' },
-    { name: 'العنكبوت العملاق', health: 40, damage: 12, goldReward: 10, emoji: '🕷️' },
-    { name: 'شجرة ملعونة', health: 50, damage: 8, goldReward: 12, emoji: '🌳' },
+    { name: 'ذئب الظلام', health: 30, damage: 10, goldReward: 8, emoji: '🐺', image: `${IMG}/forest_wolf.png` },
+    { name: 'العنكبوت العملاق', health: 40, damage: 12, goldReward: 10, emoji: '🕷️', image: `${IMG}/forest_spider.png` },
+    { name: 'شجرة ملعونة', health: 50, damage: 8, goldReward: 12, emoji: '🌳', image: `${IMG}/forest_tree.png` },
   ],
   city: [
     { name: 'لص الطريق', health: 35, damage: 15, goldReward: 15, emoji: '🦹' },
@@ -471,25 +481,25 @@ export const REGION_ENEMIES: Record<string, Enemy[]> = {
     { name: 'قاطع طريق', health: 45, damage: 18, goldReward: 20, emoji: '⚔️' },
   ],
   mountains: [
-    { name: 'العملاق الحجري', health: 70, damage: 20, goldReward: 25, emoji: '🗿' },
+    { name: 'العملاق الحجري', health: 70, damage: 20, goldReward: 25, emoji: '🗿', image: `${IMG}/mountain_giant.png` },
     { name: 'التنين الصغير', health: 60, damage: 25, goldReward: 30, emoji: '🐲' },
     { name: 'نسر الجبال', health: 40, damage: 15, goldReward: 15, emoji: '🦅' },
   ],
   desert: [
-    { name: 'عقرب العملاق', health: 45, damage: 18, goldReward: 20, emoji: '🦂' },
-    { name: 'مومياء الغضب', health: 60, damage: 22, goldReward: 25, emoji: '🧟' },
+    { name: 'عقرب العملاق', health: 45, damage: 18, goldReward: 20, emoji: '🦂', image: `${IMG}/desert_scorpion.png` },
+    { name: 'مومياء الغضب', health: 60, damage: 22, goldReward: 25, emoji: '🧟', image: `${IMG}/desert_mummy.png` },
     { name: 'رملة حية', health: 35, damage: 15, goldReward: 15, emoji: '🌀' },
-    { name: 'جني الصحراء', health: 55, damage: 20, goldReward: 35, emoji: '🧞' },
+    { name: 'جني الصحراء', health: 55, damage: 20, goldReward: 35, emoji: '🧞', image: `${IMG}/desert_genie.png` },
   ],
   ocean: [
-    { name: 'أخطبوط العمق', health: 65, damage: 22, goldReward: 30, emoji: '🐙' },
+    { name: 'أخطبوط العمق', health: 65, damage: 22, goldReward: 30, emoji: '🐙', image: `${IMG}/ocean_octopus.png` },
     { name: 'سمكة القرش السحرية', health: 55, damage: 25, goldReward: 25, emoji: '🦈' },
     { name: 'حورية الغدر', health: 40, damage: 18, goldReward: 35, emoji: '🧜‍♀️' },
   ],
   castle: [
-    { name: 'حارس البوابات', health: 80, damage: 25, goldReward: 35, emoji: '👹' },
-    { name: 'فارس الظلام', health: 90, damage: 30, goldReward: 40, emoji: '🖤' },
-    { name: 'حارس الكتاب (الزعيم النهائي)', health: 150, damage: 35, goldReward: 100, emoji: '👿' },
+    { name: 'حارس البوابات', health: 80, damage: 25, goldReward: 35, emoji: '👹', image: `${IMG}/castle_guardian.png` },
+    { name: 'فارس الظلام', health: 90, damage: 30, goldReward: 40, emoji: '🖤', image: `${IMG}/castle_dark_knight.png` },
+    { name: 'حارس الكتاب (الزعيم النهائي)', health: 150, damage: 35, goldReward: 100, emoji: '👿', image: `${IMG}/castle_final_boss.png` },
   ],
 };
 

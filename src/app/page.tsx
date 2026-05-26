@@ -162,6 +162,21 @@ export default function GamePage() {
   const [linaForesight, setLinaForesight] = useState(false);
   const [showAchievement, setShowAchievement] = useState<string | null>(null);
   const [onlineCount] = useState(1);
+  const [battleEffect, setBattleEffect] = useState<'shake' | 'damage' | 'heal' | null>(null);
+  const [damageNumbers, setDamageNumbers] = useState<{id: number; value: number; x: number; y: number; color: string}[]>([]);
+  const [showRegionTransition, setShowRegionTransition] = useState(false);
+  const [prevRegionIndex, setPrevRegionIndex] = useState(-1);
+
+  // Battle effects
+  const triggerBattleEffect = useCallback((type: 'shake' | 'damage' | 'heal', dmgValue?: number) => {
+    setBattleEffect(type);
+    if (dmgValue !== undefined) {
+      const id = Date.now();
+      setDamageNumbers(prev => [...prev, { id, value: dmgValue, x: 30 + Math.random() * 40, y: 30 + Math.random() * 20, color: type === 'heal' ? '#22c55e' : '#ef4444' }]);
+      setTimeout(() => setDamageNumbers(prev => prev.filter(d => d.id !== id)), 1200);
+    }
+    setTimeout(() => setBattleEffect(null), 500);
+  }, []);
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -407,7 +422,17 @@ export default function GamePage() {
     s = checkAchievements(s);
     setSave(s);
     setEventOutcome(outcome.text);
-  }, [checkAchievements]);
+
+    // Trigger visual effects
+    if (currentEvent?.type === 'battle') {
+      if (outcome.healthChange && outcome.healthChange < 0) {
+        triggerBattleEffect('shake', Math.abs(outcome.healthChange));
+      }
+      if (outcome.healthChange && outcome.healthChange > 0) {
+        triggerBattleEffect('heal', outcome.healthChange);
+      }
+    }
+  }, [checkAchievements, triggerBattleEffect]);
 
   // Next event
   const nextEvent = useCallback(() => {
@@ -849,11 +874,16 @@ export default function GamePage() {
   // ============================================
   const renderKingdomScreen = () => {
     const char = getCharacter(save?.mainCharacterId || '');
+    const currentRegion = REGIONS[save?.regionIndex || 0];
 
     return (
-      <div className="min-h-screen pb-24" style={{ background: 'linear-gradient(180deg, #1a0a2e 0%, #0d0520 100%)' }}>
+      <div className="min-h-screen pb-24 relative">
+        {/* Region Background */}
+        {currentRegion?.backgroundImage && (
+          <div className="region-bg" style={{ backgroundImage: `url(${currentRegion.backgroundImage})` }} />
+        )}
         {/* Header */}
-        <div className="p-4 text-center" style={{ background: 'linear-gradient(135deg, #2d1b4e, #1a0a2e)', borderBottom: '3px solid #d4a017', boxShadow: '0 4px 15px rgba(212, 160, 23, 0.3)' }}>
+        <div className="p-4 text-center relative z-10" style={{ background: 'rgba(45, 27, 78, 0.9)', borderBottom: '3px solid #d4a017', boxShadow: '0 4px 15px rgba(212, 160, 23, 0.3)', backdropFilter: 'blur(10px)' }}>
           <h1 className="text-2xl font-bold title-glow" style={{ color: '#d4a017' }}>
             🏰 لوحة مملكة نور الحكمة
           </h1>
@@ -861,8 +891,8 @@ export default function GamePage() {
         </div>
 
         {/* Player Status Card */}
-        <div className="p-4">
-          <div className="game-card p-4">
+        <div className="p-4 relative z-10">
+          <div className="game-card p-4" style={{ backdropFilter: 'blur(10px)', background: 'rgba(45, 27, 78, 0.85)' }}>
             <div className="flex items-center gap-3 mb-3">
               <span className="text-4xl">{char?.emoji}</span>
               <div>
@@ -896,7 +926,7 @@ export default function GamePage() {
         </div>
 
         {/* Feed */}
-        <div className="px-4 mb-4">
+        <div className="px-4 mb-4 relative z-10">
           <h3 className="text-lg font-bold mb-2" style={{ color: '#d4a017' }}>🔔 آخر الأحداث</h3>
           <div className="space-y-2 max-h-48 overflow-y-auto">
             {feed.length === 0 ? (
@@ -916,7 +946,7 @@ export default function GamePage() {
         </div>
 
         {/* Rankings */}
-        <div className="px-4 mb-4">
+        <div className="px-4 mb-4 relative z-10">
           <h3 className="text-lg font-bold mb-2" style={{ color: '#d4a017' }}>📊 ترتيب المغامرين</h3>
           <div className="space-y-2">
             {[
@@ -942,14 +972,14 @@ export default function GamePage() {
         </div>
 
         {/* Online count */}
-        <div className="px-4 mb-4 text-center">
+        <div className="px-4 mb-4 text-center relative z-10">
           <span className="text-sm px-4 py-2 rounded-full" style={{ background: '#2d1b4e', color: '#22c55e' }}>
             👥 المتصلون الآن: {onlineCount}
           </span>
         </div>
 
         {/* Bottom Nav */}
-        <div className="fixed bottom-0 left-0 right-0 p-3 flex justify-center gap-3" style={{ background: 'linear-gradient(180deg, transparent, #1a0a2e 30%)', borderTop: '1px solid #6b3fa0', zIndex: 40 }}>
+        <div className="fixed bottom-0 left-0 right-0 p-3 flex justify-center gap-3 relative z-10" style={{ background: 'rgba(45, 27, 78, 0.95)', borderTop: '1px solid #6b3fa0', backdropFilter: 'blur(10px)' }}>
           <button className="fantasy-btn flex-1" onClick={() => setScreen('gameplay')}>
             ⚔️ العب
           </button>
@@ -1132,8 +1162,11 @@ export default function GamePage() {
     // Stat Point Mode
     if (statPointMode) {
       return (
-        <div className="min-h-screen flex flex-col items-center justify-center p-6" style={{ background: 'linear-gradient(180deg, #1a0a2e 0%, #0d0520 100%)' }}>
-          <div className="scroll-container p-6 max-w-md w-full text-center fade-in">
+        <div className="min-h-screen flex flex-col items-center justify-center p-6 relative">
+          {region?.backgroundImage && (
+            <div className="region-bg" style={{ backgroundImage: `url(${region.backgroundImage})` }} />
+          )}
+          <div className="event-card-visual p-6 max-w-md w-full text-center fade-in relative z-10">
             <span className="text-5xl block mb-4 float-animation">🎉</span>
             <h2 className="text-2xl font-bold mb-2" style={{ color: '#d4a017' }}>منطقة مكتملة!</h2>
             <p className="mb-2" style={{ color: '#22c55e' }}>لقد أكملت {region?.name} {region?.emoji}</p>
@@ -1171,8 +1204,11 @@ export default function GamePage() {
     // Game Complete / No more events
     if (!currentEvent) {
       return (
-        <div className="min-h-screen flex flex-col items-center justify-center p-6" style={{ background: 'linear-gradient(180deg, #1a0a2e 0%, #0d0520 100%)' }}>
-          <div className="scroll-container p-6 max-w-md w-full text-center fade-in">
+        <div className="min-h-screen flex flex-col items-center justify-center p-6 relative">
+          {region?.backgroundImage && (
+            <div className="region-bg" style={{ backgroundImage: `url(${region.backgroundImage})` }} />
+          )}
+          <div className="event-card-visual p-6 max-w-md w-full text-center fade-in relative z-10">
             <span className="text-5xl block mb-4">🏆</span>
             <h2 className="text-2xl font-bold mb-4" style={{ color: '#d4a017' }}>اكتملت المغامرة!</h2>
             <p className="mb-4" style={{ color: '#a890c0' }}>استكشفت كل المناطق المتاحة</p>
@@ -1183,9 +1219,21 @@ export default function GamePage() {
     }
 
     return (
-      <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(180deg, #1a0a2e 0%, #0d0520 100%)' }}>
+      <div className={`min-h-screen flex flex-col relative ${battleEffect === 'shake' ? 'screen-shake' : ''} ${battleEffect === 'damage' ? 'damage-flash' : ''} ${battleEffect === 'heal' ? 'heal-flash' : ''}`}>
+        {/* Region Background Image */}
+        {region?.backgroundImage && (
+          <div className="region-bg" style={{ backgroundImage: `url(${region.backgroundImage})` }} />
+        )}
+
+        {/* Damage Numbers */}
+        {damageNumbers.map(d => (
+          <div key={d.id} className="damage-number" style={{ left: `${d.x}%`, top: `${d.y}%`, color: d.color }}>
+            {d.color === '#22c55e' ? '+' : '-'}{d.value}
+          </div>
+        ))}
+
         {/* Top Resource Bar */}
-        <div className="p-3" style={{ background: '#2d1b4e', borderBottom: '2px solid #6b3fa0' }}>
+        <div className="p-3 relative z-10" style={{ background: 'rgba(45, 27, 78, 0.9)', borderBottom: '2px solid #6b3fa0', backdropFilter: 'blur(10px)' }}>
           <div className="flex items-center gap-2 mb-2">
             <span className="text-2xl">{char?.emoji}</span>
             <span className="font-bold" style={{ color: '#d4a017' }}>{char?.name}</span>
@@ -1205,13 +1253,13 @@ export default function GamePage() {
         </div>
 
         {/* Event Progress */}
-        <div className="px-3 py-1 text-center text-xs" style={{ background: '#1a0a2e', color: '#a890c0' }}>
+        <div className="px-3 py-1 text-center text-xs relative z-10" style={{ background: 'rgba(26, 10, 46, 0.9)', color: '#a890c0' }}>
           الحدث {save.eventIndex + 1} من {events.length} — {region?.name} {region?.emoji}
         </div>
 
         {/* Ally Indicators */}
         {save.allies.length > 0 && (
-          <div className="flex gap-1 px-3 py-1" style={{ background: 'rgba(45, 27, 78, 0.5)' }}>
+          <div className="flex gap-1 px-3 py-1 relative z-10" style={{ background: 'rgba(45, 27, 78, 0.5)' }}>
             {save.allies.map(ally => {
               const allyChar = getCharacter(ally.characterId);
               return (
@@ -1224,24 +1272,66 @@ export default function GamePage() {
         )}
 
         {/* Main Event Area */}
-        <div className="flex-1 p-4 overflow-y-auto">
+        <div className="flex-1 p-4 overflow-y-auto relative z-10">
           {!eventOutcome ? (
             <div className="fade-in">
-              {/* Event Card */}
-              <div className="scroll-container p-5 mb-4">
-                <div className="text-center mb-3">
-                  <span className="text-4xl block mb-2">{currentEvent.emoji}</span>
-                  <h3 className="text-xl font-bold" style={{ color: '#d4a017' }}>{currentEvent.title}</h3>
-                  <span className="text-xs px-3 py-1 rounded-full inline-block mt-1" style={{ background: '#3d2a5c', color: '#a890c0' }}>
-                    {currentEvent.type === 'battle' ? '⚔️ معركة' :
-                     currentEvent.type === 'puzzle' ? '🧩 لغز' :
-                     currentEvent.type === 'merchant' ? '🏪 تاجر' :
-                     currentEvent.type === 'encounter' ? '🤝 لقاء' :
-                     currentEvent.type === 'comedy' ? '😂 حدث مضحك' :
-                     currentEvent.type === 'crossroads' ? '🗺️ مفترق طرق' :
-                     '🔮 حدث سري'}
-                  </span>
-                </div>
+              {/* Event Card with Visual */}
+              <div className="event-card-visual p-5 mb-4">
+                {/* Monster Image for Battle Events */}
+                {currentEvent.type === 'battle' && (() => {
+                  const enemies = REGION_ENEMIES[region?.id] || [];
+                  const enemy = enemies[save.eventIndex % enemies.length];
+                  return enemy ? (
+                    <div className="monster-appear mb-4">
+                      <div className="monster-image-container battle-overlay rounded-xl overflow-hidden" style={{ background: 'rgba(0,0,0,0.3)', minHeight: '180px' }}>
+                        {enemy.image ? (
+                          <img src={enemy.image} alt={enemy.name} className="monster-appear" style={{ maxHeight: '200px' }} />
+                        ) : (
+                          <span className="text-7xl block py-8">{enemy.emoji}</span>
+                        )}
+                      </div>
+                      {/* Enemy Info Bar */}
+                      <div className="mt-3 p-3 rounded-xl" style={{ background: 'rgba(220, 38, 38, 0.15)', border: '1px solid rgba(220, 38, 38, 0.4)' }}>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-bold text-lg" style={{ color: '#ef4444' }}>{enemy.emoji} {enemy.name}</span>
+                          <span className="text-xs px-2 py-1 rounded-full" style={{ background: 'rgba(220, 38, 38, 0.3)', color: '#ef4444' }}>⚔️ معركة</span>
+                        </div>
+                        <div className="monster-hp-bar mb-2">
+                          <div className="monster-hp-fill" style={{ width: '100%' }} />
+                        </div>
+                        <div className="flex gap-4 text-sm justify-center">
+                          <span style={{ color: '#ef4444' }}>❤️ {enemy.health}</span>
+                          <span style={{ color: '#f97316' }}>⚔️ ضرر: {enemy.damage}</span>
+                          <span style={{ color: '#d4a017' }}>💰 جائزة: {enemy.goldReward}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
+
+                {/* Non-battle event header */}
+                {currentEvent.type !== 'battle' && (
+                  <div className="text-center mb-3">
+                    <span className="text-4xl block mb-2">{currentEvent.emoji}</span>
+                    <h3 className="text-xl font-bold" style={{ color: '#d4a017' }}>{currentEvent.title}</h3>
+                    <span className="text-xs px-3 py-1 rounded-full inline-block mt-1" style={{ background: '#3d2a5c', color: '#a890c0' }}>
+                      {currentEvent.type === 'puzzle' ? '🧩 لغز' :
+                       currentEvent.type === 'merchant' ? '🏪 تاجر' :
+                       currentEvent.type === 'encounter' ? '🤝 لقاء' :
+                       currentEvent.type === 'comedy' ? '😂 حدث مضحك' :
+                       currentEvent.type === 'crossroads' ? '🗺️ مفترق طرق' :
+                       '🔮 حدث سري'}
+                    </span>
+                  </div>
+                )}
+
+                {/* Battle event title (shown below image) */}
+                {currentEvent.type === 'battle' && (
+                  <div className="text-center mb-3">
+                    <h3 className="text-xl font-bold" style={{ color: '#d4a017' }}>{currentEvent.title}</h3>
+                  </div>
+                )}
+
                 <p className="text-base leading-relaxed mb-4" style={{ color: '#f0e6d3' }}>
                   {currentEvent.description}
                 </p>
@@ -1258,33 +1348,12 @@ export default function GamePage() {
                   </div>
                 )}
 
-                {/* Battle Enemy Info */}
-                {currentEvent.type === 'battle' && (() => {
-                  const enemies = REGION_ENEMIES[region?.id] || [];
-                  const enemy = enemies[save.eventIndex % enemies.length];
-                  return enemy ? (
-                    <div className="p-3 rounded-lg mb-4 text-center" style={{ background: 'rgba(220, 38, 38, 0.15)', border: '1px solid #dc2626' }}>
-                      <span className="text-3xl block mb-1">{enemy.emoji}</span>
-                      <div className="font-bold" style={{ color: '#ef4444' }}>{enemy.name}</div>
-                      <div className="text-sm" style={{ color: '#f0e6d3' }}>
-                        ❤️ {enemy.health} | ⚔️ ضرر: {enemy.damage} | 💰 جائزة: {enemy.goldReward}
-                      </div>
-                    </div>
-                  ) : null;
-                })()}
-
                 {/* Options */}
                 <div className="space-y-3">
                   {currentEvent.options.map((option, i) => (
                     <button
                       key={i}
-                      className="w-full text-right p-4 rounded-lg transition-all hover:scale-[1.02] active:scale-[0.98]"
-                      style={{
-                        background: 'linear-gradient(135deg, #3d2a5c, #2d1b4e)',
-                        border: '2px solid #6b3fa0',
-                        color: '#f0e6d3',
-                        minHeight: '44px',
-                      }}
+                      className="battle-option"
                       onClick={() => processOutcome(option, save)}
                     >
                       <span className="text-base">{option.text}</span>
@@ -1306,7 +1375,7 @@ export default function GamePage() {
               {/* Special Ability Button */}
               {!save.abilityUsedThisRegion && (
                 <button
-                  className="w-full p-3 rounded-lg text-center font-bold mb-3 transition-all hover:scale-[1.02]"
+                  className="w-full p-3 rounded-lg text-center font-bold mb-3 transition-all hover:scale-[1.02] glow-pulse"
                   style={{ background: 'linear-gradient(135deg, #6b3fa0, #4d1d8e)', border: '2px solid #d4a017', color: '#d4a017' }}
                   onClick={useAbility}
                 >
@@ -1317,8 +1386,8 @@ export default function GamePage() {
           ) : (
             /* Outcome Display */
             <div className="fade-in">
-              <div className="scroll-container p-6 text-center">
-                <span className="text-5xl block mb-4">
+              <div className="event-card-visual p-6 text-center">
+                <span className="text-5xl block mb-4 victory-bounce">
                   {eventOutcome.includes('💀') ? '💀' :
                    eventOutcome.includes('🏆') ? '🏆' :
                    eventOutcome.includes('🔥') ? '🔥' :
@@ -1338,7 +1407,7 @@ export default function GamePage() {
         </div>
 
         {/* Bottom Navigation */}
-        <div className="p-3 flex gap-2" style={{ background: '#2d1b4e', borderTop: '2px solid #6b3fa0' }}>
+        <div className="p-3 flex gap-2 relative z-10" style={{ background: 'rgba(45, 27, 78, 0.95)', borderTop: '2px solid #6b3fa0', backdropFilter: 'blur(10px)' }}>
           <button className="fantasy-btn-secondary flex-1 text-sm py-2" onClick={() => setScreen('kingdom')}>
             🏰 المملكة
           </button>
@@ -1376,9 +1445,13 @@ export default function GamePage() {
   // ============================================
   const renderEndingScreen = () => {
     const ending = ENDINGS.find(e => e.id === endingId);
+    const castleBg = REGIONS[5]?.backgroundImage;
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6" style={{ background: 'linear-gradient(180deg, #1a0a2e 0%, #0d0520 50%, #1a0a2e 100%)' }}>
-        <div className="scroll-container p-8 max-w-md w-full text-center fade-in">
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 relative">
+        {castleBg && (
+          <div className="region-bg" style={{ backgroundImage: `url(${castleBg})` }} />
+        )}
+        <div className="event-card-visual p-8 max-w-md w-full text-center fade-in relative z-10">
           <span className="text-7xl block mb-6 float-animation">{ending?.emoji || '🏆'}</span>
           <h2 className="text-3xl font-bold mb-4 title-glow" style={{ color: '#d4a017' }}>
             {ending?.name || 'النهاية'}
