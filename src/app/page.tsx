@@ -135,6 +135,19 @@ function formatTime(ms: number): string {
   return `${minutes}د`;
 }
 
+// Image with fallback component
+function ImgWithFallback({ src, alt, fallbackEmoji, className, style }: { src: string; alt: string; fallbackEmoji: string; className?: string; style?: React.CSSProperties }) {
+  const [error, setError] = useState(false);
+  if (error) {
+    return (
+      <div className="flex items-center justify-center" style={{ minHeight: '80px', ...style }}>
+        <span style={{ fontSize: '3rem' }}>{fallbackEmoji}</span>
+      </div>
+    );
+  }
+  return <img src={src} alt={alt} className={className} style={style} onError={() => setError(true)} loading="lazy" />;
+}
+
 const STAT_NAMES: Record<string, string> = {
   strength: 'القوة',
   intelligence: 'الذكاء',
@@ -706,6 +719,7 @@ export default function GamePage() {
             />
             <button
               className="glow-btn w-full mt-4 text-lg"
+              style={{ minHeight: '48px' }}
               onClick={() => {
                 if (playerName.trim()) {
                   const newSave = createDefaultSave(playerName.trim());
@@ -739,15 +753,110 @@ export default function GamePage() {
     <div className="game-viewport" style={{ background: 'linear-gradient(180deg, #0d0d15 0%, #070709 100%)' }}>
       {/* Header */}
       <div className="top-bar py-3 px-4 text-center">
-        <h2 className="text-xl font-bold font-serif-heading golden-text">
+        <h2 className="text-lg font-bold font-serif-heading golden-text">
           اختر شخصيتك
         </h2>
-        <p className="text-xs" style={{ color: '#7a7a8a' }}>اختر شخصية رئيسية تمثلك وشخصيات جانبية أيضاً</p>
+        <p className="text-xs" style={{ color: '#7a7a8a' }}>اسحب لليسار لمزيد من الشخصيات</p>
       </div>
 
-      {/* Content - scrollable */}
-      <div className="content-area p-3 pb-20">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-w-6xl mx-auto">
+      {/* Content - horizontal scroll on mobile, grid on desktop */}
+      <div className="content-area p-2 pb-20">
+        {/* Mobile: Horizontal scroll carousel */}
+        <div className="horiz-scroll sm:hidden" style={{ padding: '8px 4px' }}>
+          {CHARACTERS.map((char) => {
+            const isMain = save?.mainCharacterId === char.id;
+            const isSide = save?.sideCharacterIds.includes(char.id) || false;
+
+            return (
+              <div
+                key={char.id}
+                className={`game-card ${isMain ? 'game-card-selected' : ''} ${isSide ? 'game-card-selected' : ''}`}
+                style={{ width: '260px', flexShrink: 0 }}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-3xl">{char.emoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-sm golden-text truncate">{char.name}</h3>
+                    <div className="flex gap-1 flex-wrap">
+                      <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(212, 160, 23, 0.1)', color: '#7a7a8a', fontSize: '0.65rem' }}>
+                        {char.classAr}
+                      </span>
+                      {isMain && <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(212, 160, 23, 0.2)', color: '#d4a017', fontSize: '0.65rem' }}>⭐</span>}
+                      {isSide && <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(74, 58, 107, 0.3)', color: '#a78bfa', fontSize: '0.65rem' }}>جانبية</span>}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Stats - compact grid */}
+                <div className="grid grid-cols-3 gap-1 mb-2">
+                  {[
+                    { label: 'قوة', value: char.stats.strength, color: '#ff4444' },
+                    { label: 'ذكاء', value: char.stats.intelligence, color: '#a78bfa' },
+                    { label: 'حظ', value: char.stats.luck, color: '#44ff88' },
+                    { label: 'كاريزما', value: char.stats.charisma, color: '#d4a017' },
+                    { label: 'مانا', value: char.stats.mana, color: '#4488ff' },
+                    { label: 'دفاع', value: char.stats.defense, color: '#ff8844' },
+                  ].map((stat) => (
+                    <div key={stat.label} className="flex items-center gap-1 text-xs p-1 rounded" style={{ background: 'rgba(0,0,0,0.2)' }}>
+                      <span style={{ color: '#7a7a8a', fontSize: '0.6rem' }}>{stat.label}</span>
+                      <div className="flex-1 stat-bar">
+                        <div className="stat-bar-fill" style={{ width: `${(stat.value / 6) * 100}%`, background: stat.color }} />
+                      </div>
+                      <span className="font-bold" style={{ color: stat.color, fontSize: '0.6rem' }}>{stat.value}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Unique Ability */}
+                <div className="mb-2 p-1.5 rounded-lg text-xs" style={{ background: 'rgba(212, 160, 23, 0.08)', borderRight: '2px solid rgba(212, 160, 23, 0.4)' }}>
+                  <span style={{ color: '#d4a017' }}>✨ {char.uniqueAbilityAr}</span>
+                </div>
+
+                {/* Buttons */}
+                <div className="flex gap-2">
+                  <button
+                    className="glow-btn flex-1 text-xs py-2 px-2"
+                    style={{ minHeight: '44px' }}
+                    onClick={() => {
+                      if (!save) return;
+                      if (save.mainCharacterId && save.mainCharacterId !== char.id) {
+                        setConfirmMain(char.id);
+                      } else {
+                        const s = { ...save, mainCharacterId: char.id };
+                        if (!s.playedCharacterIds.includes(char.id)) {
+                          s.playedCharacterIds = [...s.playedCharacterIds, char.id];
+                        }
+                        setSave(s);
+                        addFeed(`${save.name} اختار ${char.name} كشخصية رئيسية`, char.emoji);
+                      }
+                    }}
+                  >
+                    ⭐ رئيسية
+                  </button>
+                  <button
+                    className="fantasy-btn-secondary flex-1 text-xs py-2 px-2"
+                    style={{ minHeight: '44px' }}
+                    onClick={() => {
+                      if (!save) return;
+                      const s = { ...save, sideCharacterIds: [...save.sideCharacterIds] };
+                      if (isSide) {
+                        s.sideCharacterIds = s.sideCharacterIds.filter(id => id !== char.id);
+                      } else {
+                        s.sideCharacterIds.push(char.id);
+                      }
+                      setSave(s);
+                    }}
+                  >
+                    {isSide ? 'إزالة' : 'جانبية'}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Desktop: Grid layout */}
+        <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-3 max-w-6xl mx-auto">
           {CHARACTERS.map((char, idx) => {
             const isMain = save?.mainCharacterId === char.id;
             const isSide = save?.sideCharacterIds.includes(char.id) || false;
@@ -806,6 +915,7 @@ export default function GamePage() {
                 <div className="flex gap-2">
                   <button
                     className="glow-btn flex-1 text-xs py-1.5 px-2"
+                    style={{ minHeight: '44px' }}
                     onClick={() => {
                       if (!save) return;
                       if (save.mainCharacterId && save.mainCharacterId !== char.id) {
@@ -824,6 +934,7 @@ export default function GamePage() {
                   </button>
                   <button
                     className="fantasy-btn-secondary flex-1 text-xs py-1.5 px-2"
+                    style={{ minHeight: '44px' }}
                     onClick={() => {
                       if (!save) return;
                       const s = { ...save, sideCharacterIds: [...save.sideCharacterIds] };
@@ -853,7 +964,7 @@ export default function GamePage() {
               هل تريد تغيير شخصيتك الرئيسية إلى <strong className="golden-text">{getCharacter(confirmMain)?.name}</strong>؟ هذا القرار نادر التغيير.
             </p>
             <div className="flex gap-3">
-              <button className="glow-btn flex-1" onClick={() => {
+              <button className="glow-btn flex-1" style={{ minHeight: '44px' }} onClick={() => {
                 if (!save) return;
                 const s = { ...save, mainCharacterId: confirmMain, playedCharacterIds: [...save.playedCharacterIds] };
                 if (!s.playedCharacterIds.includes(confirmMain)) s.playedCharacterIds.push(confirmMain);
@@ -861,7 +972,7 @@ export default function GamePage() {
                 addFeed(`${save.name} غيّر شخصيته الرئيسية إلى ${getCharacter(confirmMain)?.name}`, '🔄');
                 setConfirmMain(null);
               }}>✅ نعم</button>
-              <button className="fantasy-btn-secondary flex-1" onClick={() => setConfirmMain(null)}>❌ لا</button>
+              <button className="fantasy-btn-secondary flex-1" style={{ minHeight: '44px' }} onClick={() => setConfirmMain(null)}>❌ لا</button>
             </div>
           </div>
         </div>
@@ -872,6 +983,7 @@ export default function GamePage() {
         <div className="p-3 text-center">
           <button
             className="glow-btn text-base px-6 py-2.5 w-full max-w-xs"
+            style={{ minHeight: '48px' }}
             onClick={() => {
               if (save?.mainCharacterId) {
                 setScreen('kingdom');
@@ -1009,6 +1121,32 @@ export default function GamePage() {
             <span className="text-xs px-3 py-1.5 rounded-full" style={{ background: 'rgba(0,0,0,0.3)', color: '#44ff88' }}>
               👥 المتصلون الآن: {onlineCount}
             </span>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="space-y-2">
+            <button
+              className="glow-btn w-full text-sm"
+              style={{ minHeight: '48px' }}
+              onClick={() => setScreen('gameplay')}
+            >
+              🗺️ متابعة المغامرة
+            </button>
+            <button
+              className="fantasy-btn-danger w-full text-sm"
+              onClick={() => {
+                if (confirm('هل تريد مسح كل البيانات والبدء من جديد؟')) {
+                  localStorage.removeItem('moghamara_save');
+                  localStorage.removeItem('moghamara_feed');
+                  setSave(null);
+                  setFeed([]);
+                  setPlayerName('');
+                  setScreen('login');
+                }
+              }}
+            >
+              🗑️ مسح البيانات
+            </button>
           </div>
         </div>
 
@@ -1356,26 +1494,26 @@ export default function GamePage() {
                   <div className="mb-2">
                     <div className="scene-frame monster-appear" style={{ background: 'rgba(0,0,0,0.3)' }}>
                       {enemy.image ? (
-                        <img src={enemy.image} alt={enemy.name} className="monster-appear w-full" style={{ maxHeight: '160px', objectFit: 'cover' }} />
+                        <ImgWithFallback src={enemy.image} alt={enemy.name} fallbackEmoji={enemy.emoji} className="monster-appear w-full" style={{ maxHeight: '140px', objectFit: 'cover' }} />
                       ) : (
-                        <div className="flex items-center justify-center py-6">
+                        <div className="flex items-center justify-center py-4">
                           <span className="text-5xl">{enemy.emoji}</span>
                         </div>
                       )}
                     </div>
                     {/* Enemy Info */}
-                    <div className="mt-1.5 p-2 rounded-lg" style={{ background: 'rgba(255, 68, 68, 0.08)', border: '1px solid rgba(255, 68, 68, 0.25)' }}>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-bold text-sm" style={{ color: '#ff4444' }}>{enemy.emoji} {enemy.name}</span>
+                    <div className="mt-1 p-1.5 rounded-lg" style={{ background: 'rgba(255, 68, 68, 0.08)', border: '1px solid rgba(255, 68, 68, 0.25)' }}>
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="font-bold text-xs" style={{ color: '#ff4444' }}>{enemy.emoji} {enemy.name}</span>
                         <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(255, 68, 68, 0.15)', color: '#ff4444' }}>⚔️ معركة</span>
                       </div>
-                      <div className="monster-hp-bar mb-1">
+                      <div className="monster-hp-bar mb-0.5">
                         <div className="monster-hp-fill" style={{ width: '100%' }} />
                       </div>
-                      <div className="flex gap-3 text-xs justify-center">
-                        <span style={{ color: '#ff4444' }}>❤️ {enemy.health}</span>
-                        <span style={{ color: '#ff8844' }}>⚔️ {enemy.damage}</span>
-                        <span style={{ color: '#ffcc00' }}>💰 {enemy.goldReward}</span>
+                      <div className="flex gap-2 text-xs justify-center">
+                        <span style={{ color: '#ff4444' }}>❤️{enemy.health}</span>
+                        <span style={{ color: '#ff8844' }}>⚔️{enemy.damage}</span>
+                        <span style={{ color: '#ffcc00' }}>💰{enemy.goldReward}</span>
                       </div>
                     </div>
                   </div>
@@ -1387,11 +1525,12 @@ export default function GamePage() {
                 <div className="mb-2 text-center">
                   {currentEvent.image ? (
                     <div className="scene-frame mb-1.5">
-                      <img
+                      <ImgWithFallback
                         src={currentEvent.image}
                         alt={currentEvent.title}
+                        fallbackEmoji={currentEvent.emoji}
                         className="w-full"
-                        style={{ maxHeight: '150px', objectFit: 'cover', objectPosition: 'center top' }}
+                        style={{ maxHeight: '130px', objectFit: 'cover', objectPosition: 'center top' }}
                       />
                     </div>
                   ) : (
@@ -1401,10 +1540,10 @@ export default function GamePage() {
               )}
 
               {/* Event Title - Golden Gradient */}
-              <h3 className="text-lg font-bold text-center mb-1 font-serif-heading golden-text">{currentEvent.title}</h3>
+              <h3 className="text-base font-bold text-center mb-1 font-serif-heading golden-text">{currentEvent.title}</h3>
 
               {/* Event Type Badge */}
-              <div className="text-center mb-1.5">
+              <div className="text-center mb-1">
                 <span className="text-xs px-2 py-0.5 rounded-full inline-block" style={{ background: 'rgba(212, 160, 23, 0.1)', border: '1px solid rgba(212, 160, 23, 0.2)', color: '#d4a017' }}>
                   {currentEvent.type === 'puzzle' ? '🧩 لغز' :
                    currentEvent.type === 'merchant' ? '🏪 تاجر' :
@@ -1416,7 +1555,7 @@ export default function GamePage() {
               </div>
 
               {/* Event Description */}
-              <p className="text-sm leading-relaxed mb-2" style={{ color: '#c8c8d0' }}>
+              <p className="text-xs leading-relaxed mb-2" style={{ color: '#c8c8d0' }}>
                 {currentEvent.description}
               </p>
 
@@ -1433,16 +1572,16 @@ export default function GamePage() {
               )}
 
               {/* Options - Compact Buttons */}
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 {currentEvent.options.map((option, i) => (
                   <button
                     key={i}
                     className="event-option"
                     onClick={() => processOutcome(option, save)}
                   >
-                    <span className="text-sm">{option.text}</span>
+                    <span className="text-xs">{option.text}</span>
                     {option.statCheck && (
-                      <div className="text-xs mt-0.5" style={{ color: '#7a7a8a' }}>
+                      <div className="text-xs mt-0.5" style={{ color: '#7a7a8a', fontSize: '0.65rem' }}>
                         يتطلب: {STAT_NAMES[option.statCheck] || option.statCheck} {option.statThreshold}+
                         {char && (
                           <span style={{ color: '#44ff88' }}>
@@ -1458,8 +1597,8 @@ export default function GamePage() {
               {/* Special Ability Button - Small */}
               {!save.abilityUsedThisRegion && (
                 <button
-                  className="w-full p-2 rounded-lg text-center font-bold text-sm mt-2 transition-all hover:bg-[rgba(212,160,23,0.08)]"
-                  style={{ background: 'rgba(212, 160, 23, 0.05)', border: '1px solid rgba(212, 160, 23, 0.25)', color: '#d4a017' }}
+                  className="w-full p-1.5 rounded-lg text-center font-bold text-xs mt-1.5 transition-all hover:bg-[rgba(212,160,23,0.08)]"
+                  style={{ background: 'rgba(212, 160, 23, 0.05)', border: '1px solid rgba(212, 160, 23, 0.25)', color: '#d4a017', minHeight: '40px' }}
                   onClick={useAbility}
                 >
                   ✨ {char?.uniqueAbilityAr?.split(' - ')[0] || 'قدرة'}
@@ -1469,8 +1608,8 @@ export default function GamePage() {
           ) : (
             /* Outcome Display - Overlay Style */
             <div className="fade-in flex flex-col items-center justify-center h-full">
-              <div className="event-card p-5 text-center max-w-sm w-full">
-                <span className="text-3xl block mb-3 fade-in">
+              <div className="event-card p-4 text-center max-w-sm w-full">
+                <span className="text-2xl block mb-2 fade-in">
                   {eventOutcome.includes('💀') ? '💀' :
                    eventOutcome.includes('🏆') ? '🏆' :
                    eventOutcome.includes('🔥') ? '🔥' :
@@ -1478,10 +1617,10 @@ export default function GamePage() {
                    eventOutcome.includes('🐸') ? '🐸' :
                    eventOutcome.includes('👼') ? '👼' : '✨'}
                 </span>
-                <p className="text-sm leading-relaxed mb-4" style={{ color: '#c8c8d0' }}>
+                <p className="text-xs leading-relaxed mb-3" style={{ color: '#c8c8d0' }}>
                   {eventOutcome}
                 </p>
-                <button className="glow-btn w-full" onClick={nextEvent}>
+                <button className="glow-btn w-full text-sm" style={{ minHeight: '48px' }} onClick={nextEvent}>
                   {save.eventIndex >= (events.length - 1) ? 'المنطقة التالية ➡️' : 'المتابعة ➡️'}
                 </button>
               </div>
@@ -1533,7 +1672,7 @@ export default function GamePage() {
             )}
 
             <div className="mt-4 space-y-2">
-              <button className="glow-btn w-full" onClick={() => {
+              <button className="glow-btn w-full text-sm" style={{ minHeight: '48px' }} onClick={() => {
                 if (save) {
                   const newSave = createDefaultSave(save.name);
                   newSave.mainCharacterId = save.mainCharacterId;
