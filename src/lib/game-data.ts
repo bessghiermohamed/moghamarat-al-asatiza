@@ -161,6 +161,8 @@ export const CLASS_GLOW_COLORS: Record<string, string> = {
   'فارس': 'border-red-400 shadow-red-400/30',
 };
 
+const PORTRAIT = '/moghamarat-al-asatiza/game-assets/characters';
+
 // ==========================================
 // 27 شخصية
 // ==========================================
@@ -497,7 +499,6 @@ export const REGIONS: Region[] = [
 // ==========================================
 const IMG = '/moghamarat-al-asatiza/game-assets/monsters';
 const EVT = '/moghamarat-al-asatiza/game-assets/events';
-const PORTRAIT = '/moghamarat-al-asatiza/game-assets/characters';
 
 export const REGION_ENEMIES: Record<string, Enemy[]> = {
   forest: [
