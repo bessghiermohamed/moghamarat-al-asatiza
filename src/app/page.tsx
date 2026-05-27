@@ -1494,7 +1494,7 @@ export default function GamePage() {
                   <div className="mb-2">
                     <div className="scene-frame monster-appear" style={{ background: 'rgba(0,0,0,0.3)' }}>
                       {enemy.image ? (
-                        <ImgWithFallback src={enemy.image} alt={enemy.name} fallbackEmoji={enemy.emoji} className="monster-appear w-full" style={{ maxHeight: '140px', objectFit: 'cover' }} />
+                        <ImgWithFallback src={enemy.image} alt={enemy.name} fallbackEmoji={enemy.emoji} className="monster-appear w-full" style={{ maxHeight: '200px', objectFit: 'cover', objectPosition: 'center' }} />
                       ) : (
                         <div className="flex items-center justify-center py-4">
                           <span className="text-5xl">{enemy.emoji}</span>
@@ -1530,7 +1530,7 @@ export default function GamePage() {
                         alt={currentEvent.title}
                         fallbackEmoji={currentEvent.emoji}
                         className="w-full"
-                        style={{ maxHeight: '130px', objectFit: 'cover', objectPosition: 'center top' }}
+                        style={{ maxHeight: '180px', objectFit: 'cover', objectPosition: 'center top' }}
                       />
                     </div>
                   ) : (
