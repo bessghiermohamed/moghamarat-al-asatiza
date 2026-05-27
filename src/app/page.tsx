@@ -557,7 +557,13 @@ export default function GamePage() {
       style={idx !== undefined ? { animationDelay: `${idx * 0.02}s` } : undefined}
     >
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-3xl">{char.emoji}</span>
+        {char.portrait ? (
+          <div className="scene-frame" style={{ width: '52px', height: '52px', flexShrink: 0, borderRadius: '50%', overflow: 'hidden' }}>
+            <ImgWithFallback src={char.portrait} alt={char.name} fallbackEmoji={char.emoji} style={{ width: '52px', height: '52px', objectFit: 'cover', borderRadius: '50%' }} />
+          </div>
+        ) : (
+          <span className="text-3xl">{char.emoji}</span>
+        )}
         <div className="flex-1 min-w-0">
           <h3 className="font-bold text-sm golden-text truncate">{char.name}</h3>
           <div className="flex gap-1 flex-wrap">
@@ -697,7 +703,13 @@ export default function GamePage() {
           {/* Current Status */}
           <div className="narrative-box p-4 mb-3">
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-2xl">{char?.emoji}</span>
+              {char?.portrait ? (
+                <div className="scene-frame" style={{ width: '40px', height: '40px', flexShrink: 0, borderRadius: '50%', overflow: 'hidden' }}>
+                  <ImgWithFallback src={char.portrait} alt={char.name} fallbackEmoji={char.emoji} style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '50%' }} />
+                </div>
+              ) : (
+                <span className="text-2xl">{char?.emoji}</span>
+              )}
               <div>
                 <h3 className="font-bold golden-text text-sm">{save.name}</h3>
                 <p className="text-xs" style={{ color: '#9a8b72' }}>{char?.classAr} • {char?.name}</p>
