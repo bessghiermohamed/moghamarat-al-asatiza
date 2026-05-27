@@ -194,6 +194,48 @@ export default function GamePage() {
   const [damageNumbers, setDamageNumbers] = useState<{id: number; value: number; x: number; y: number; color: string}[]>([]);
   const [showRegionTransition, setShowRegionTransition] = useState(false);
 
+  // Dice roll state
+  const [dicePhase, setDicePhase] = useState<'idle' | 'ready' | 'rolling' | 'result'>('idle');
+  const [diceValue, setDiceValue] = useState<number | null>(null);
+  const [diceModifier, setDiceModifier] = useState(0); // positive = enhancement, negative = weakening, 0 = neutral
+  const [diceRollingNumber, setDiceRollingNumber] = useState(0);
+
+  // Roll dice for battle enhancement/weakening (0-20, pentagonal D20)
+  const rollBattleDice = useCallback(() => {
+    setDicePhase('rolling');
+    // Rapid number cycling animation
+    let cycleCount = 0;
+    const cycleInterval = setInterval(() => {
+      setDiceRollingNumber(rand(0, 20));
+      cycleCount++;
+      if (cycleCount > 25) clearInterval(cycleInterval);
+    }, 70);
+
+    const value = rand(0, 20);
+    // Animate rolling, then show result after delay
+    setTimeout(() => {
+      clearInterval(cycleInterval);
+      setDiceValue(value);
+      setDicePhase('result');
+      // Calculate modifier: difference from 10
+      if (value === 20) setDiceModifier(10); // critical enhancement
+      else if (value === 0) setDiceModifier(-10); // critical weakening
+      else if (value > 10) setDiceModifier(value - 10); // enhancement
+      else if (value < 10) setDiceModifier(value - 10); // weakening (negative)
+      else setDiceModifier(0); // exactly 10 = neutral
+    }, 2000);
+  }, []);
+
+  const chooseNeutralDice = useCallback(() => {
+    setDiceValue(10);
+    setDiceModifier(0);
+    setDicePhase('result');
+  }, []);
+
+  const confirmDice = useCallback(() => {
+    setDicePhase('confirmed');
+  }, []);
+
   // Battle effects
   const triggerBattleEffect = useCallback((type: 'shake' | 'damage' | 'heal', dmgValue?: number) => {
     setBattleEffect(type);
@@ -315,6 +357,27 @@ export default function GamePage() {
     res.reputation = clamp(res.reputation + (outcome.reputationChange || 0), 0, 100);
     res.knowledge = Math.max(0, res.knowledge + (outcome.knowledgeChange || 0));
 
+    // Apply dice modifier for battle events
+    const currentEvents = REGION_EVENTS[REGIONS[s.regionIndex]?.id] || [];
+    const currentEvent = currentEvents[s.eventIndex];
+    if (currentEvent?.type === 'battle' && diceModifier !== 0) {
+      if (diceModifier > 0) {
+        // Enhancement: reduce damage taken, increase gold reward
+        const healBonus = Math.min(diceModifier * 2, 20);
+        const goldBonus = diceModifier * 2;
+        res.health = clamp(res.health + healBonus, 0, res.maxHealth);
+        res.gold += goldBonus;
+        outcome.text += ` ⚜️ تعزيز النرد (+${healBonus} صحة، +${goldBonus} ذهب)`;
+      } else {
+        // Weakening: take extra damage, lose some gold
+        const extraDmg = Math.min(Math.abs(diceModifier) * 2, 25);
+        const goldLoss = Math.abs(diceModifier);
+        res.health = clamp(res.health - extraDmg, 0, res.maxHealth);
+        res.gold = Math.max(0, res.gold - goldLoss);
+        outcome.text += ` 💀 تضعيف النرد (-${extraDmg} صحة، -${goldLoss} ذهب)`;
+      }
+    }
+
     if (s.mainCharacterId === 'asma' && (outcome.goldChange || 0) < 0) {
       const refund = Math.abs(outcome.goldChange || 0) * 0.5;
       res.gold = Math.max(0, res.gold + Math.floor(refund));
@@ -339,8 +402,6 @@ export default function GamePage() {
     }
 
     let battlesFled = s.battlesFled, battlesNegotiated = s.battlesNegotiated, puzzlesSolved = s.puzzlesSolved, merchantBuys = s.merchantBuys, karimDragonCount = s.karimDragonCount;
-    const currentEvents = REGION_EVENTS[REGIONS[s.regionIndex]?.id] || [];
-    const currentEvent = currentEvents[s.eventIndex];
     if (currentEvent?.type === 'battle') {
       if (option.text.includes('الهروب') || option.text.includes('هرب')) battlesFled++;
       if (option.text.includes('المفاوضة') || option.text.includes('إقناع')) battlesNegotiated++;
@@ -413,6 +474,10 @@ export default function GamePage() {
     }
     setEventOutcome(null);
     setLinaForesight(false);
+    setDicePhase('idle');
+    setDiceValue(null);
+    setDiceModifier(0);
+    setDiceRollingNumber(0);
   }, [save, addFeed, determineEnding]);
 
   // Use special ability
@@ -908,6 +973,10 @@ export default function GamePage() {
     const sceneImage = currentEvent?.image || currentEnemy?.image || region?.backgroundImage;
     const isBattle = currentEvent?.type === 'battle';
 
+    // Auto-trigger dice for battle events
+    const showDiceOverlay = isBattle && !eventOutcome && dicePhase !== 'confirmed' && dicePhase !== 'idle';
+    const showBattleChoices = !isBattle || dicePhase === 'confirmed' || eventOutcome;
+
     return (
       <div className="game-viewport" style={{ background: 'linear-gradient(180deg, #1a1510 0%, #15110c 100%)' }}>
         {/* Region Background */}
@@ -939,11 +1008,167 @@ export default function GamePage() {
           </div>
         </div>
 
+        {/* ====== DICE ROLL OVERLAY ====== */}
+        {isBattle && !eventOutcome && dicePhase === 'idle' && (
+          <div className="dice-overlay fade-in">
+            <div className="text-center max-w-sm w-full">
+              {/* Monster Preview */}
+              {currentEnemy && (
+                <div className="mb-3 monster-appear">
+                  <div className="scene-frame scene-frame-danger mx-auto" style={{ width: '100px', height: '100px', overflow: 'hidden' }}>
+                    <ImgWithFallback
+                      src={currentEnemy.image}
+                      alt={currentEnemy.name}
+                      fallbackEmoji={currentEnemy.emoji}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  </div>
+                  <p className="mt-2 text-sm font-bold" style={{ color: '#a03030' }}>{currentEnemy.emoji} {currentEnemy.name}</p>
+                  <p className="text-xs" style={{ color: '#9a8b72' }}>⚔️ ضرر: {currentEnemy.damage} | 💰 جائزة: {currentEnemy.goldReward}</p>
+                </div>
+              )}
+
+              <div className="ornament mb-2">⚜ ⚜ ⚜</div>
+              <h2 className="text-xl font-bold golden-text font-serif-heading mb-1">⚔️ مواجهة وحش!</h2>
+              <p className="text-sm mb-4" style={{ color: '#b8a88a' }}>ارمِ النرد الخماسي لتحديد مصيرك قبل القتال</p>
+
+              {/* 3D Dice Preview */}
+              <div className="dice-container">
+                <div className="dice-3d">
+                  <div className="dice-face face-front"><span className="face-number">D20</span><div className="face-shape" /></div>
+                  <div className="dice-face face-back"><span className="face-number">0</span><div className="face-shape" /></div>
+                  <div className="dice-face face-right"><span className="face-number">10</span><div className="face-shape" /></div>
+                  <div className="dice-face face-left"><span className="face-number">20</span><div className="face-shape" /></div>
+                  <div className="dice-face face-top"><span className="face-number">5</span><div className="face-shape" /></div>
+                  <div className="dice-face face-bottom"><span className="face-number">15</span><div className="face-shape" /></div>
+                </div>
+              </div>
+
+              <div className="space-y-2 mt-3">
+                <button className="glow-btn glow-btn-gold w-full text-lg py-3" onClick={() => setDicePhase('ready')}>
+                  🎲 ارمِ النرد
+                </button>
+                <button className="fantasy-btn-secondary w-full text-sm py-2.5" onClick={chooseNeutralDice}>
+                  ✋ اختار 10 — بدون تعزيز أو تضعيف
+                </button>
+              </div>
+
+              <div className="mt-4 narrative-box p-3 text-xs text-right" style={{ color: '#9a8b72' }}>
+                <p className="font-bold golden-text mb-1">📜 قواعد النرد:</p>
+                <p>• النرد من <strong>0</strong> إلى <strong>20</strong></p>
+                <p>• فوق 10 = <span style={{ color: '#5a8a47' }}>تعزيز</span> (أقل ضرر، أكثر ذهب)</p>
+                <p>• تحت 10 = <span style={{ color: '#a03030' }}>تضعيف</span> (أكثر ضرر، أقل ذهب)</p>
+                <p>• 10 = <span style={{ color: '#c9a84c' }}>محايد</span> (بدون تأثير)</p>
+                <p>• 20 = <span style={{ color: '#ffd700' }}>تعزيز حرج!</span> | 0 = <span style={{ color: '#ff1a1a' }}>تضعيف حرج!</span></p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Dice Rolling Animation */}
+        {(dicePhase === 'ready' || dicePhase === 'rolling') && (
+          <div className="dice-overlay">
+            <div className="text-center">
+              <div className="ornament mb-3">⚜ ✦ ⚜</div>
+              <h2 className="text-xl font-bold golden-text font-serif-heading mb-2">🎲 جاري الرمي...</h2>
+
+              <div className="dice-container">
+                <div className={`dice-3d ${dicePhase === 'rolling' ? 'rolling' : ''}`}>
+                  <div className="dice-face face-front"><span className="face-number">{dicePhase === 'rolling' ? diceRollingNumber : '?'}</span><div className="face-shape" /></div>
+                  <div className="dice-face face-back"><span className="face-number">{dicePhase === 'rolling' ? diceRollingNumber : '?'}</span><div className="face-shape" /></div>
+                  <div className="dice-face face-right"><span className="face-number">{dicePhase === 'rolling' ? diceRollingNumber : '?'}</span><div className="face-shape" /></div>
+                  <div className="dice-face face-left"><span className="face-number">{dicePhase === 'rolling' ? diceRollingNumber : '?'}</span><div className="face-shape" /></div>
+                  <div className="dice-face face-top"><span className="face-number">{dicePhase === 'rolling' ? diceRollingNumber : '?'}</span><div className="face-shape" /></div>
+                  <div className="dice-face face-bottom"><span className="face-number">{dicePhase === 'rolling' ? diceRollingNumber : '?'}</span><div className="face-shape" /></div>
+                </div>
+              </div>
+
+              {dicePhase === 'ready' && (
+                <button className="glow-btn glow-btn-gold mt-4 text-lg px-8 py-3" onClick={rollBattleDice}>
+                  🎲 ارمِ الآن!
+                </button>
+              )}
+              {dicePhase === 'rolling' && (
+                <p className="mt-4 text-sm" style={{ color: '#9a8b72' }}>النرد يدور...</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Dice Result */}
+        {dicePhase === 'result' && diceValue !== null && (
+          <div className="dice-overlay">
+            <div className="text-center max-w-sm w-full fade-in">
+              <div className="ornament mb-2">⚜ ⚜ ⚜</div>
+
+              {/* Big Result Number */}
+              <div className={`dice-result-number ${
+                diceValue === 20 ? 'dice-result-critical-good' :
+                diceValue === 0 ? 'dice-result-critical-bad' :
+                diceModifier > 0 ? 'dice-result-enhance' :
+                diceModifier < 0 ? 'dice-result-weaken' :
+                'dice-result-neutral'
+              }`}>
+                {diceValue}
+              </div>
+
+              {/* Modifier Label */}
+              <div className="mt-3 mb-2">
+                {diceValue === 20 && (
+                  <p className="text-lg font-bold" style={{ color: '#ffd700' }}>✨ تعزيز حرج! (+10)</p>
+                )}
+                {diceValue === 0 && (
+                  <p className="text-lg font-bold" style={{ color: '#ff1a1a' }}>💀 تضعيف حرج! (-10)</p>
+                )}
+                {diceValue !== 20 && diceValue !== 0 && diceModifier > 0 && (
+                  <p className="text-base font-bold" style={{ color: '#5a8a47' }}>⚜️ تعزيز (+{diceModifier})</p>
+                )}
+                {diceValue !== 20 && diceValue !== 0 && diceModifier < 0 && (
+                  <p className="text-base font-bold" style={{ color: '#a03030' }}>💀 تضعيف ({diceModifier})</p>
+                )}
+                {diceModifier === 0 && (
+                  <p className="text-base font-bold" style={{ color: '#c9a84c' }}>⚖️ محايد (بدون تأثير)</p>
+                )}
+              </div>
+
+              {/* Modifier Bar Visualization */}
+              <div className="dice-modifier-bar">
+                <div className="dice-modifier-marker" />
+                <div
+                  className="dice-modifier-fill"
+                  style={{
+                    width: `${Math.abs(diceModifier) / 10 * 50}%`,
+                    background: diceModifier > 0 ? '#5a8a47' : diceModifier < 0 ? '#a03030' : '#c9a84c',
+                    marginLeft: diceModifier >= 0 ? '50%' : `${50 - Math.abs(diceModifier) / 10 * 50}%`,
+                  }}
+                />
+              </div>
+
+              {/* Effect Preview */}
+              <div className="narrative-box p-3 mt-3 text-xs text-right">
+                {diceModifier > 0 && (
+                  <p style={{ color: '#5a8a47' }}>💚 ستستعيد {Math.min(diceModifier * 2, 20)} صحة إضافية وتكسب {diceModifier * 2} ذهب إضافي</p>
+                )}
+                {diceModifier < 0 && (
+                  <p style={{ color: '#a03030' }}>💔 ستخسر {Math.min(Math.abs(diceModifier) * 2, 25)} صحة إضافية وتخسر {Math.abs(diceModifier)} ذهب</p>
+                )}
+                {diceModifier === 0 && (
+                  <p style={{ color: '#c9a84c' }}>⚖️ القتال سيكون عادلاً بدون أي تعديل</p>
+                )}
+              </div>
+
+              <button className="glow-btn glow-btn-gold w-full mt-4 text-lg py-3" onClick={confirmDice}>
+                ⚔️ ابدأ القتال
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Main Gameplay Area - No Scroll, Fits Viewport */}
         <div className={`gameplay-layout ${battleEffect === 'shake' ? 'screen-shake' : ''}`} style={{ position: 'relative', zIndex: 1 }}>
 
           {/* Scene Image - 30% of viewport */}
-          {sceneImage && !eventOutcome && (
+          {sceneImage && !eventOutcome && !(isBattle && dicePhase !== 'confirmed') && (
             <div className="gameplay-scene" style={{ padding: '6px 10px' }}>
               <div className={`scene-frame ${isBattle ? 'scene-frame-danger' : 'scene-frame-gold'}`}>
                 <ImgWithFallback
@@ -1002,7 +1227,7 @@ export default function GamePage() {
 
           {/* Choices / Actions Area */}
           <div className="gameplay-choices">
-            {!eventOutcome && currentEvent && (
+            {!eventOutcome && currentEvent && showBattleChoices && (
               <div className="space-y-2">
                 {currentEvent.options.map((option, idx) => {
                   const isDanger = option.text.includes('هرب') || option.text.includes('هروب') || option.text.includes('قتال');
