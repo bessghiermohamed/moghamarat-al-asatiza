@@ -71,7 +71,7 @@ function rand(min: number, max: number): number {
 // D20 roll system - inspired by Life in Adventure / D&D
 function rollD20(statValue: number, difficulty: number): { roll: number; modifier: number; total: number; success: boolean; critical: boolean; criticalFail: boolean } {
   const roll = rand(1, 20);
-  const modifier = Math.floor((statValue - 10) / 2); // +0 at 10, +4 at 18, -4 at 3
+  const modifier = Math.floor((statValue - 10) / 2);
   const total = roll + modifier;
   const critical = roll === 20;
   const criticalFail = roll === 1;
@@ -80,9 +80,8 @@ function rollD20(statValue: number, difficulty: number): { roll: number; modifie
 }
 
 function statCheck(statValue: number, threshold: number): boolean {
-  // Convert old-style stat check to D20: stat 1-5 mapped to D20 stat 3-18
-  const d20Stat = 3 + (statValue - 1) * 3; // 1->3, 2->6, 3->9, 4->12, 5->15
-  const difficulty = 8 + threshold * 3; // threshold 2->14, 3->17, 4->20
+  const d20Stat = 3 + (statValue - 1) * 3;
+  const difficulty = 8 + threshold * 3;
   return rollD20(d20Stat, difficulty).success;
 }
 
@@ -146,12 +145,12 @@ const STAT_NAMES: Record<string, string> = {
 };
 
 const STAT_COLORS: Record<string, string> = {
-  strength: '#b05050',
-  intelligence: '#8b5cf6',
-  luck: '#5a9a5a',
-  charisma: '#8b7355',
-  mana: '#3b82f6',
-  defense: '#f97316',
+  strength: '#ff4444',
+  intelligence: '#a78bfa',
+  luck: '#44ff88',
+  charisma: '#d4a017',
+  mana: '#4488ff',
+  defense: '#ff8844',
 };
 
 // ============================================
@@ -180,7 +179,7 @@ export default function GamePage() {
     setBattleEffect(type);
     if (dmgValue !== undefined) {
       const id = Date.now();
-      setDamageNumbers(prev => [...prev, { id, value: dmgValue, x: 30 + Math.random() * 40, y: 30 + Math.random() * 20, color: type === 'heal' ? '#5a9a5a' : '#b05050' }]);
+      setDamageNumbers(prev => [...prev, { id, value: dmgValue, x: 30 + Math.random() * 40, y: 30 + Math.random() * 20, color: type === 'heal' ? '#44ff88' : '#ff4444' }]);
       setTimeout(() => setDamageNumbers(prev => prev.filter(d => d.id !== id)), 1200);
     }
     setTimeout(() => setBattleEffect(null), 500);
@@ -357,7 +356,6 @@ export default function GamePage() {
         const hasBouhalassa = s.allies.some(a => a.characterId === 'aya_bouhalassa') || outcome.allyGain === 'aya_bouhalassa';
         const hasBoubaker = s.allies.some(a => a.characterId === 'aya_boubaker') || outcome.allyGain === 'aya_boubaker';
         if (hasBouhalassa && hasBoubaker) {
-          // They fight - can't add
           outcome.text += ' لكن آية بوبكر وآية بوحلاسة تشاجرتا ورفضتا العمل معاً!';
         } else {
           const passive = ALLY_PASSIVES[outcome.allyGain];
@@ -453,12 +451,10 @@ export default function GamePage() {
     const nextIdx = s.eventIndex + 1;
 
     if (nextIdx >= events.length) {
-      // Region complete
       const points = s.resources.health > 70 ? 2 : 1;
       setStatPoints(points);
       setStatPointMode(true);
 
-      // Naska passive: full restore at end of region
       if (s.mainCharacterId === 'naska') {
         s.resources.health = s.resources.maxHealth;
         s.resources.mana = s.resources.maxMana;
@@ -639,19 +635,37 @@ export default function GamePage() {
     setSave(s);
   }, [save, statPoints]);
 
-  // Resource Bar Component
-  const ResourceBar = ({ value, max, color, label, emoji }: { value: number; max: number; color: string; label: string; emoji: string }) => (
-    <div className="mb-1">
-      <div className="flex justify-between text-xs mb-0.5">
-        <span style={{ color }}>{emoji} {label}</span>
-        <span style={{ color: '#c8c8d0' }}>{value}/{max}</span>
-      </div>
-      <div className="resource-bar">
-        <div
-          className="h-full rounded-full transition-all duration-500"
-          style={{ width: `${Math.max(2, (value / max) * 100)}%`, background: `linear-gradient(90deg, ${color}, ${color}cc)` }}
-        />
-        <div className="resource-bar-text">{emoji} {value}/{max}</div>
+  // Compact resource icon component
+  const ResourceIcon = ({ emoji, value, color }: { emoji: string; value: number; color: string }) => (
+    <span className="resource-icon" style={{ color }}>
+      {emoji} {value}
+    </span>
+  );
+
+  // Bottom Navigation Bar
+  const BottomNav = ({ activeTab }: { activeTab: string }) => (
+    <div className="bottom-nav">
+      <div className="flex justify-around items-center py-1.5 px-1">
+        <button className={`nav-btn ${activeTab === 'story' ? 'nav-btn-active' : ''}`} onClick={() => setScreen('gameplay')}>
+          <span className="nav-btn-icon">📖</span>
+          <span>القصة</span>
+        </button>
+        <button className={`nav-btn ${activeTab === 'shop' ? 'nav-btn-active' : ''}`} onClick={() => setScreen('gameplay')}>
+          <span className="nav-btn-icon">💰</span>
+          <span>التاجر</span>
+        </button>
+        <button className={`nav-btn ${activeTab === 'achievements' ? 'nav-btn-active' : ''}`} onClick={() => setScreen('profile')}>
+          <span className="nav-btn-icon">🏆</span>
+          <span>الإنجازات</span>
+        </button>
+        <button className={`nav-btn ${activeTab === 'profile' ? 'nav-btn-active' : ''}`} onClick={() => setScreen('profile')}>
+          <span className="nav-btn-icon">👤</span>
+          <span>ملفي</span>
+        </button>
+        <button className={`nav-btn ${activeTab === 'settings' ? 'nav-btn-active' : ''}`} onClick={() => setScreen('kingdom')}>
+          <span className="nav-btn-icon">⚙️</span>
+          <span>المملكة</span>
+        </button>
       </div>
     </div>
   );
@@ -660,58 +674,59 @@ export default function GamePage() {
   // SCREEN: Login
   // ============================================
   const renderLoginScreen = () => (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6" style={{ background: 'linear-gradient(180deg, #0a0a0f 0%, #070709 50%, #0a0a0f 100%)' }}>
-      <div className="text-center fade-in max-w-md w-full">
-        <h1 className="text-4xl md:text-5xl font-bold mb-3 font-serif-heading" style={{ color: '#8b7355', letterSpacing: '0.05em' }}>
-          مغامرة الأساتذة
-        </h1>
-        <p className="text-lg mb-8" style={{ color: '#7a7a8a' }}>مملكة نور الحكمة</p>
+    <div className="game-viewport" style={{ background: 'linear-gradient(180deg, #0d0d15 0%, #070709 50%, #0d0d15 100%)' }}>
+      <div className="flex-1 flex flex-col items-center justify-center p-6">
+        <div className="text-center fade-in max-w-md w-full">
+          <h1 className="text-4xl md:text-5xl font-bold mb-2 font-serif-heading golden-text" style={{ letterSpacing: '0.05em' }}>
+            مغامرة الأساتذة
+          </h1>
+          <p className="text-base mb-6" style={{ color: '#7a7a8a' }}>مملكة نور الحكمة</p>
 
-        <div className="scroll-container p-6 mx-auto">
-          <label className="block text-lg mb-3 font-bold" style={{ color: '#8b7355' }}>
-            أدخل اسمك الحقيقي
-          </label>
-          <input
-            type="text"
-            value={playerName}
-            onChange={(e) => setPlayerName(e.target.value)}
-            className="w-full p-3 rounded-lg text-right text-lg outline-none focus:ring-2 focus:ring-[#8b7355]"
-            style={{ background: '#12121a', border: '2px solid #4a3a6b', color: '#c8c8d0' }}
-            placeholder="اسمك هنا..."
-            maxLength={30}
-            dir="rtl"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && playerName.trim()) {
-                const newSave = createDefaultSave(playerName.trim());
-                setSave(newSave);
-                addFeed(`${playerName.trim()} انضم إلى مملكة نور الحكمة!`, '🆕');
-                setScreen('characterSelect');
-              }
-            }}
-          />
-          <button
-            className="fantasy-btn w-full mt-4 text-lg"
-            onClick={() => {
-              if (playerName.trim()) {
-                const newSave = createDefaultSave(playerName.trim());
-                setSave(newSave);
-                addFeed(`${playerName.trim()} انضم إلى مملكة نور الحكمة!`, '🆕');
-                setScreen('characterSelect');
-              }
-            }}
-            disabled={!playerName.trim()}
-            style={{ opacity: playerName.trim() ? 1 : 0.5 }}
-          >
-            ابدأ المغامرة
-          </button>
-        </div>
+          <div className="scroll-container p-5 mx-auto">
+            <label className="block text-base mb-2 font-bold golden-text">
+              أدخل اسمك الحقيقي
+            </label>
+            <input
+              type="text"
+              value={playerName}
+              onChange={(e) => setPlayerName(e.target.value)}
+              className="w-full p-3 rounded-lg text-right text-lg outline-none focus:ring-2 focus:ring-[#d4a017]"
+              style={{ background: '#0d0d15', border: '1px solid rgba(212, 160, 23, 0.3)', color: '#c8c8d0' }}
+              placeholder="اسمك هنا..."
+              maxLength={30}
+              dir="rtl"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && playerName.trim()) {
+                  const newSave = createDefaultSave(playerName.trim());
+                  setSave(newSave);
+                  addFeed(`${playerName.trim()} انضم إلى مملكة نور الحكمة!`, '🆕');
+                  setScreen('characterSelect');
+                }
+              }}
+            />
+            <button
+              className="glow-btn w-full mt-4 text-lg"
+              onClick={() => {
+                if (playerName.trim()) {
+                  const newSave = createDefaultSave(playerName.trim());
+                  setSave(newSave);
+                  addFeed(`${playerName.trim()} انضم إلى مملكة نور الحكمة!`, '🆕');
+                  setScreen('characterSelect');
+                }
+              }}
+              disabled={!playerName.trim()}
+            >
+              ابدأ المغامرة
+            </button>
+          </div>
 
-        <div className="mt-8 p-4 rounded-xl text-sm leading-relaxed" style={{ background: 'rgba(18, 18, 26, 0.7)', border: '1px solid #4a3a6b' }}>
-          <p style={{ color: '#7a7a8a' }}>
-            📜 سُرق <strong style={{ color: '#8b7355' }}>الكتاب الأعظم</strong> من قلعة الظلام على يد حارس خائن.
-            أنت المغامر الوحيد القادر على عبور المناطق الست واستعادته.
-            اختر شخصيتك بعناية، وجمع الحلفاء، وواجه الأخطار...
-          </p>
+          <div className="mt-6 p-3 rounded-xl text-sm leading-relaxed" style={{ background: 'rgba(18, 18, 26, 0.7)', border: '1px solid rgba(212, 160, 23, 0.15)' }}>
+            <p style={{ color: '#7a7a8a' }}>
+              📜 سُرق <strong className="golden-text">الكتاب الأعظم</strong> من قلعة الظلام على يد حارس خائن.
+              أنت المغامر الوحيد القادر على عبور المناطق الست واستعادته.
+              اختر شخصيتك بعناية، وجمع الحلفاء، وواجه الأخطار...
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -721,120 +736,124 @@ export default function GamePage() {
   // SCREEN: Character Selection
   // ============================================
   const renderCharacterSelectScreen = () => (
-    <div className="min-h-screen pb-20" style={{ background: 'linear-gradient(180deg, #0a0a0f 0%, #070709 100%)' }}>
-      <div className="text-center p-4 mb-2" style={{ background: 'linear-gradient(135deg, #1a1a28, #12121a)', borderBottom: '1px solid #2a2a3e' }}>
-        <h2 className="text-2xl font-bold font-serif-heading" style={{ color: '#8b7355' }}>
+    <div className="game-viewport" style={{ background: 'linear-gradient(180deg, #0d0d15 0%, #070709 100%)' }}>
+      {/* Header */}
+      <div className="top-bar py-3 px-4 text-center">
+        <h2 className="text-xl font-bold font-serif-heading golden-text">
           اختر شخصيتك
         </h2>
-        <p className="text-sm" style={{ color: '#7a7a8a' }}>اختر شخصية رئيسية تمثلك وشخصيات جانبية أيضاً</p>
+        <p className="text-xs" style={{ color: '#7a7a8a' }}>اختر شخصية رئيسية تمثلك وشخصيات جانبية أيضاً</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4 max-w-6xl mx-auto">
-        {CHARACTERS.map((char, idx) => {
-          const isMain = save?.mainCharacterId === char.id;
-          const isSide = save?.sideCharacterIds.includes(char.id) || false;
+      {/* Content - scrollable */}
+      <div className="content-area p-3 pb-20">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-w-6xl mx-auto">
+          {CHARACTERS.map((char, idx) => {
+            const isMain = save?.mainCharacterId === char.id;
+            const isSide = save?.sideCharacterIds.includes(char.id) || false;
 
-          return (
-            <div
-              key={char.id}
-              className={`game-card slide-in ${isMain ? 'game-card-selected' : ''} ${isSide ? 'game-card-selected' : ''}`}
-              style={{ animationDelay: `${idx * 0.03}s` }}
-            >
-              <div className="flex items-center gap-3 mb-3">
-                <span className="text-3xl">{char.emoji}</span>
-                <div className="flex-1">
-                  <h3 className="font-bold text-lg" style={{ color: '#8b7355' }}>{char.name}</h3>
-                  <div className="flex gap-1 flex-wrap">
-                    <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: '#2a2a3e', color: '#7a7a8a' }}>
-                      {char.classAr}
-                    </span>
-                    {isMain && <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-600 text-yellow-100">⭐ رئيسية</span>}
-                    {isSide && <span className="text-xs px-2 py-0.5 rounded-full bg-purple-600 text-purple-100">جانبية</span>}
+            return (
+              <div
+                key={char.id}
+                className={`game-card slide-in ${isMain ? 'game-card-selected' : ''} ${isSide ? 'game-card-selected' : ''}`}
+                style={{ animationDelay: `${idx * 0.02}s` }}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-2xl">{char.emoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-sm golden-text truncate">{char.name}</h3>
+                    <div className="flex gap-1 flex-wrap">
+                      <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(212, 160, 23, 0.1)', color: '#7a7a8a', fontSize: '0.65rem' }}>
+                        {char.classAr}
+                      </span>
+                      {isMain && <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(212, 160, 23, 0.2)', color: '#d4a017', fontSize: '0.65rem' }}>⭐ رئيسية</span>}
+                      {isSide && <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(74, 58, 107, 0.3)', color: '#a78bfa', fontSize: '0.65rem' }}>جانبية</span>}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Stats */}
-              <div className="space-y-1 mb-3">
-                {[
-                  { label: 'القوة', value: char.stats.strength, color: '#b05050' },
-                  { label: 'الذكاء', value: char.stats.intelligence, color: '#8b5cf6' },
-                  { label: 'الحظ', value: char.stats.luck, color: '#5a9a5a' },
-                  { label: 'الكاريزما', value: char.stats.charisma, color: '#8b7355' },
-                  { label: 'المانا', value: char.stats.mana, color: '#3b82f6' },
-                  { label: 'الدفاع', value: char.stats.defense, color: '#f97316' },
-                ].map((stat) => (
-                  <div key={stat.label} className="flex items-center gap-2 text-xs">
-                    <span className="w-14" style={{ color: '#7a7a8a' }}>{stat.label}</span>
-                    <div className="flex-1 stat-bar">
-                      <div className="stat-bar-fill" style={{ width: `${(stat.value / 6) * 100}%`, background: stat.color }} />
+                {/* Stats - compact */}
+                <div className="grid grid-cols-3 gap-1 mb-2">
+                  {[
+                    { label: 'قوة', value: char.stats.strength, color: '#ff4444' },
+                    { label: 'ذكاء', value: char.stats.intelligence, color: '#a78bfa' },
+                    { label: 'حظ', value: char.stats.luck, color: '#44ff88' },
+                    { label: 'كاريزما', value: char.stats.charisma, color: '#d4a017' },
+                    { label: 'مانا', value: char.stats.mana, color: '#4488ff' },
+                    { label: 'دفاع', value: char.stats.defense, color: '#ff8844' },
+                  ].map((stat) => (
+                    <div key={stat.label} className="flex items-center gap-1 text-xs p-1 rounded" style={{ background: 'rgba(0,0,0,0.2)' }}>
+                      <span style={{ color: '#7a7a8a', fontSize: '0.6rem' }}>{stat.label}</span>
+                      <div className="flex-1 stat-bar">
+                        <div className="stat-bar-fill" style={{ width: `${(stat.value / 6) * 100}%`, background: stat.color }} />
+                      </div>
+                      <span className="font-bold" style={{ color: stat.color, fontSize: '0.6rem' }}>{stat.value}</span>
                     </div>
-                    <span className="w-4 text-center" style={{ color: stat.color }}>{stat.value}</span>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
 
-              {/* Unique Ability */}
-              <div className="mb-2 p-2 rounded-lg text-xs" style={{ background: 'rgba(107, 63, 160, 0.2)', borderRight: '3px solid #8b7355' }}>
-                <span style={{ color: '#8b7355' }}>✨ {char.uniqueAbilityAr}</span>
-              </div>
+                {/* Unique Ability */}
+                <div className="mb-2 p-1.5 rounded-lg text-xs" style={{ background: 'rgba(212, 160, 23, 0.08)', borderRight: '2px solid rgba(212, 160, 23, 0.4)' }}>
+                  <span style={{ color: '#d4a017' }}>✨ {char.uniqueAbilityAr}</span>
+                </div>
 
-              {/* Signature */}
-              <p className="text-xs italic mb-3" style={{ color: '#7a7a8a' }}>
-                &ldquo;{char.signature}&rdquo;
-              </p>
+                {/* Signature */}
+                <p className="text-xs italic mb-2" style={{ color: '#7a7a8a' }}>
+                  &ldquo;{char.signature}&rdquo;
+                </p>
 
-              {/* Buttons */}
-              <div className="flex gap-2">
-                <button
-                  className="fantasy-btn flex-1 text-sm py-2"
-                  onClick={() => {
-                    if (!save) return;
-                    if (save.mainCharacterId && save.mainCharacterId !== char.id) {
-                      setConfirmMain(char.id);
-                    } else {
-                      const s = { ...save, mainCharacterId: char.id };
-                      if (!s.playedCharacterIds.includes(char.id)) {
-                        s.playedCharacterIds = [...s.playedCharacterIds, char.id];
+                {/* Buttons */}
+                <div className="flex gap-2">
+                  <button
+                    className="glow-btn flex-1 text-xs py-1.5 px-2"
+                    onClick={() => {
+                      if (!save) return;
+                      if (save.mainCharacterId && save.mainCharacterId !== char.id) {
+                        setConfirmMain(char.id);
+                      } else {
+                        const s = { ...save, mainCharacterId: char.id };
+                        if (!s.playedCharacterIds.includes(char.id)) {
+                          s.playedCharacterIds = [...s.playedCharacterIds, char.id];
+                        }
+                        setSave(s);
+                        addFeed(`${save.name} اختار ${char.name} كشخصية رئيسية`, char.emoji);
+                      }
+                    }}
+                  >
+                    ⭐ رئيسية
+                  </button>
+                  <button
+                    className="fantasy-btn-secondary flex-1 text-xs py-1.5 px-2"
+                    onClick={() => {
+                      if (!save) return;
+                      const s = { ...save, sideCharacterIds: [...save.sideCharacterIds] };
+                      if (isSide) {
+                        s.sideCharacterIds = s.sideCharacterIds.filter(id => id !== char.id);
+                      } else {
+                        s.sideCharacterIds.push(char.id);
                       }
                       setSave(s);
-                      addFeed(`${save.name} اختار ${char.name} كشخصية رئيسية`, char.emoji);
-                    }
-                  }}
-                >
-                  ⭐ رئيسية
-                </button>
-                <button
-                  className="fantasy-btn-secondary flex-1 text-sm py-2"
-                  onClick={() => {
-                    if (!save) return;
-                    const s = { ...save, sideCharacterIds: [...save.sideCharacterIds] };
-                    if (isSide) {
-                      s.sideCharacterIds = s.sideCharacterIds.filter(id => id !== char.id);
-                    } else {
-                      s.sideCharacterIds.push(char.id);
-                    }
-                    setSave(s);
-                  }}
-                >
-                  {isSide ? 'إزالة' : 'جانبية'}
-                </button>
+                    }}
+                  >
+                    {isSide ? 'إزالة' : 'جانبية'}
+                  </button>
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
 
       {/* Confirm Main Dialog */}
       {confirmMain && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.85)' }}>
           <div className="scroll-container p-6 max-w-sm w-full text-center fade-in">
-            <h3 className="text-xl font-bold mb-4" style={{ color: '#8b7355' }}>⚠️ تأكيد تغيير الشخصية الرئيسية</h3>
+            <h3 className="text-xl font-bold mb-4 golden-text">⚠️ تأكيد تغيير الشخصية الرئيسية</h3>
             <p className="mb-4" style={{ color: '#c8c8d0' }}>
-              هل تريد تغيير شخصيتك الرئيسية إلى <strong style={{ color: '#8b7355' }}>{getCharacter(confirmMain)?.name}</strong>؟ هذا القرار نادر التغيير.
+              هل تريد تغيير شخصيتك الرئيسية إلى <strong className="golden-text">{getCharacter(confirmMain)?.name}</strong>؟ هذا القرار نادر التغيير.
             </p>
             <div className="flex gap-3">
-              <button className="fantasy-btn flex-1" onClick={() => {
+              <button className="glow-btn flex-1" onClick={() => {
                 if (!save) return;
                 const s = { ...save, mainCharacterId: confirmMain, playedCharacterIds: [...save.playedCharacterIds] };
                 if (!s.playedCharacterIds.includes(confirmMain)) s.playedCharacterIds.push(confirmMain);
@@ -848,24 +867,25 @@ export default function GamePage() {
         </div>
       )}
 
-      {/* Continue Button */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 text-center" style={{ background: 'linear-gradient(180deg, transparent, #0a0a0f 30%)', zIndex: 40 }}>
-        <button
-          className="fantasy-btn text-lg px-8 py-3"
-          onClick={() => {
-            if (save?.mainCharacterId) {
-              setScreen('kingdom');
-              addFeed(`${save.name} دخل مملكة نور الحكمة`, '🏰');
-            }
-          }}
-          disabled={!save?.mainCharacterId}
-          style={{ opacity: save?.mainCharacterId ? 1 : 0.5 }}
-        >
-          دخول المملكة
-        </button>
-        {!save?.mainCharacterId && (
-          <p className="mt-2 text-sm" style={{ color: '#b05050' }}>يجب اختيار شخصية رئيسية أولاً</p>
-        )}
+      {/* Fixed Bottom Continue Button */}
+      <div className="bottom-nav">
+        <div className="p-3 text-center">
+          <button
+            className="glow-btn text-base px-6 py-2.5 w-full max-w-xs"
+            onClick={() => {
+              if (save?.mainCharacterId) {
+                setScreen('kingdom');
+                addFeed(`${save.name} دخل مملكة نور الحكمة`, '🏰');
+              }
+            }}
+            disabled={!save?.mainCharacterId}
+          >
+            دخول المملكة
+          </button>
+          {!save?.mainCharacterId && (
+            <p className="mt-1 text-xs" style={{ color: '#ff4444' }}>يجب اختيار شخصية رئيسية أولاً</p>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -878,119 +898,122 @@ export default function GamePage() {
     const currentRegion = REGIONS[save?.regionIndex || 0];
 
     return (
-      <div className="min-h-screen pb-24 relative">
+      <div className="game-viewport" style={{ background: 'linear-gradient(180deg, #0d0d15 0%, #070709 100%)' }}>
         {/* Region Background */}
         {currentRegion?.backgroundImage && (
           <div className="region-bg" style={{ backgroundImage: `url(${currentRegion.backgroundImage})` }} />
         )}
-        {/* Header */}
-        <div className="p-4 text-center relative z-10" style={{ background: 'rgba(18, 18, 26, 0.95)', borderBottom: '1px solid #2a2a3e', boxShadow: '0 4px 15px rgba(212, 160, 23, 0.3)', backdropFilter: 'blur(10px)' }}>
-          <h1 className="text-2xl font-bold font-serif-heading" style={{ color: '#8b7355' }}>
-            لوحة مملكة نور الحكمة
-          </h1>
-          <p style={{ color: '#7a7a8a' }}>مرحباً {save?.name} {char?.emoji}</p>
+
+        {/* Top Bar */}
+        <div className="top-bar py-2.5 px-4 relative z-10">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">{char?.emoji}</span>
+            <div className="flex-1 min-w-0">
+              <span className="font-bold text-sm golden-text">{save?.name}</span>
+              <span className="text-xs" style={{ color: '#7a7a8a' }}> {char?.classAr}</span>
+            </div>
+            <div className="flex gap-1.5 flex-wrap justify-end">
+              <ResourceIcon emoji="❤️" value={save?.resources.health || 0} color="#ff4444" />
+              <ResourceIcon emoji="💎" value={save?.resources.mana || 0} color="#4488ff" />
+              <ResourceIcon emoji="💰" value={save?.resources.gold || 0} color="#ffcc00" />
+            </div>
+          </div>
         </div>
 
-        {/* Player Status Card */}
-        <div className="p-4 relative z-10">
-          <div className="game-card p-4" style={{ backdropFilter: 'blur(10px)', background: 'rgba(18, 18, 26, 0.92)' }}>
+        {/* Content - scrollable */}
+        <div className="content-area p-3 relative z-10">
+          {/* Player Status Card */}
+          <div className="event-card p-3 mb-3">
             <div className="flex items-center gap-3 mb-3">
-              <span className="text-4xl">{char?.emoji}</span>
-              <div>
-                <h3 className="font-bold text-lg" style={{ color: '#8b7355' }}>{save?.name}</h3>
-                <p className="text-sm" style={{ color: '#7a7a8a' }}>{char?.classAr} - {char?.name}</p>
+              <span className="text-3xl">{char?.emoji}</span>
+              <div className="flex-1">
+                <h3 className="font-bold golden-text">{save?.name}</h3>
+                <p className="text-xs" style={{ color: '#7a7a8a' }}>{char?.classAr} - {char?.name}</p>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-2 text-center text-sm">
-              <div className="p-2 rounded-lg" style={{ background: '#12121a' }}>
-                <div style={{ color: '#5a9a5a' }}>📍 المنطقة</div>
+            <div className="grid grid-cols-3 gap-2 text-center text-xs">
+              <div className="p-2 rounded-lg" style={{ background: 'rgba(0,0,0,0.3)' }}>
+                <div style={{ color: '#44ff88' }}>📍 المنطقة</div>
                 <div className="font-bold" style={{ color: '#c8c8d0' }}>{getRegionName(save?.regionIndex || 0)}</div>
               </div>
-              <div className="p-2 rounded-lg" style={{ background: '#12121a' }}>
-                <div style={{ color: '#8b7355' }}>⭐ النقاط</div>
+              <div className="p-2 rounded-lg" style={{ background: 'rgba(0,0,0,0.3)' }}>
+                <div style={{ color: '#d4a017' }}>⭐ النقاط</div>
                 <div className="font-bold" style={{ color: '#c8c8d0' }}>{save?.highestScore}</div>
               </div>
-              <div className="p-2 rounded-lg" style={{ background: '#12121a' }}>
-                <div style={{ color: '#4a3a6b' }}>🏅 الإنجازات</div>
+              <div className="p-2 rounded-lg" style={{ background: 'rgba(0,0,0,0.3)' }}>
+                <div style={{ color: '#a78bfa' }}>🏅 الإنجازات</div>
                 <div className="font-bold" style={{ color: '#c8c8d0' }}>{save?.achievements.length}/20</div>
               </div>
             </div>
 
-            {/* Mini resource bars */}
+            {/* Compact resource icons row */}
             {save && (
-              <div className="mt-3 space-y-1">
-                <ResourceBar value={save.resources.health} max={save.resources.maxHealth} color="#b05050" label="الصحة" emoji="❤️" />
-                <ResourceBar value={save.resources.mana} max={save.resources.maxMana} color="#3b82f6" label="المانا" emoji="💎" />
+              <div className="flex gap-2 mt-2 justify-center flex-wrap">
+                <ResourceIcon emoji="❤️" value={save.resources.health} color="#ff4444" />
+                <ResourceIcon emoji="💎" value={save.resources.mana} color="#4488ff" />
+                <ResourceIcon emoji="💰" value={save.resources.gold} color="#ffcc00" />
+                <ResourceIcon emoji="⭐" value={save.resources.reputation} color="#44ff88" />
+                <ResourceIcon emoji="📚" value={save.resources.knowledge} color="#a78bfa" />
               </div>
             )}
           </div>
-        </div>
 
-        {/* Feed */}
-        <div className="px-4 mb-4 relative z-10">
-          <h3 className="text-lg font-bold mb-2" style={{ color: '#8b7355' }}>🔔 آخر الأحداث</h3>
-          <div className="space-y-2 max-h-48 overflow-y-auto">
-            {feed.length === 0 ? (
-              <p className="text-sm text-center py-4" style={{ color: '#7a7a8a' }}>لا توجد أحداث بعد</p>
-            ) : (
-              feed.slice(0, 10).map((item) => (
-                <div key={item.id} className="flex items-center gap-2 p-2 rounded-lg text-sm" style={{ background: '#1a1a28' }}>
-                  <span>{item.emoji}</span>
-                  <span className="flex-1" style={{ color: '#c8c8d0' }}>{item.text}</span>
-                  <span className="text-xs whitespace-nowrap" style={{ color: '#7a7a8a' }}>
-                    {Math.floor((Date.now() - item.time) / 60000)}د
+          {/* Feed */}
+          <div className="mb-3">
+            <h3 className="text-sm font-bold mb-1.5 golden-text">🔔 آخر الأحداث</h3>
+            <div className="space-y-1.5 max-h-36 overflow-y-auto">
+              {feed.length === 0 ? (
+                <p className="text-xs text-center py-3" style={{ color: '#7a7a8a' }}>لا توجد أحداث بعد</p>
+              ) : (
+                feed.slice(0, 8).map((item) => (
+                  <div key={item.id} className="flex items-center gap-2 p-1.5 rounded-lg text-xs" style={{ background: 'rgba(0,0,0,0.3)' }}>
+                    <span>{item.emoji}</span>
+                    <span className="flex-1" style={{ color: '#c8c8d0' }}>{item.text}</span>
+                    <span className="text-xs whitespace-nowrap" style={{ color: '#7a7a8a' }}>
+                      {Math.floor((Date.now() - item.time) / 60000)}د
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Rankings */}
+          <div className="mb-3">
+            <h3 className="text-sm font-bold mb-1.5 golden-text">📊 ترتيب المغامرين</h3>
+            <div className="space-y-1.5">
+              {[
+                { name: save?.name || '', region: save?.regionIndex || 0, score: save?.highestScore || 0, emoji: char?.emoji || '👤' },
+                { name: 'أسامة', region: 5, score: 1200, emoji: '👑' },
+                { name: 'إبراهيم', region: 3, score: 850, emoji: '⚔️' },
+                { name: 'نور', region: 2, score: 620, emoji: '✨' },
+                { name: 'بوخلوة', region: 1, score: 380, emoji: '🔮' },
+              ].sort((a, b) => b.region - a.region || b.score - a.score).map((p, i) => (
+                <div key={i} className="flex items-center gap-2 p-2 rounded-lg text-sm" style={{ background: 'rgba(0,0,0,0.3)' }}>
+                  <span className="text-base font-bold" style={{ color: i === 0 ? '#d4a017' : i === 1 ? '#c0c0c0' : i === 2 ? '#cd7f32' : '#7a7a8a' }}>
+                    {i + 1}
                   </span>
+                  <span className="text-base">{p.emoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-xs truncate" style={{ color: '#c8c8d0' }}>{p.name}</div>
+                    <div className="text-xs" style={{ color: '#7a7a8a' }}>{getRegionName(p.region)}</div>
+                  </div>
+                  <span className="font-bold text-xs" style={{ color: '#d4a017' }}>{p.score}</span>
                 </div>
-              ))
-            )}
+              ))}
+            </div>
           </div>
-        </div>
 
-        {/* Rankings */}
-        <div className="px-4 mb-4 relative z-10">
-          <h3 className="text-lg font-bold mb-2" style={{ color: '#8b7355' }}>📊 ترتيب المغامرين</h3>
-          <div className="space-y-2">
-            {[
-              { name: save?.name || '', region: save?.regionIndex || 0, score: save?.highestScore || 0, emoji: char?.emoji || '👤' },
-              { name: 'أسامة', region: 5, score: 1200, emoji: '👑' },
-              { name: 'إبراهيم', region: 3, score: 850, emoji: '⚔️' },
-              { name: 'نور', region: 2, score: 620, emoji: '✨' },
-              { name: 'بوخلوة', region: 1, score: 380, emoji: '🔮' },
-            ].sort((a, b) => b.region - a.region || b.score - a.score).map((p, i) => (
-              <div key={i} className="flex items-center gap-3 p-3 rounded-lg" style={{ background: '#1a1a28' }}>
-                <span className="text-xl font-bold" style={{ color: i === 0 ? '#8b7355' : i === 1 ? '#c0c0c0' : i === 2 ? '#cd7f32' : '#7a7a8a' }}>
-                  {i + 1}
-                </span>
-                <span className="text-xl">{p.emoji}</span>
-                <div className="flex-1">
-                  <div className="font-bold" style={{ color: '#c8c8d0' }}>{p.name}</div>
-                  <div className="text-sm" style={{ color: '#7a7a8a' }}>{getRegionName(p.region)}</div>
-                </div>
-                <span className="font-bold" style={{ color: '#8b7355' }}>{p.score}</span>
-              </div>
-            ))}
+          {/* Online count */}
+          <div className="text-center mb-3">
+            <span className="text-xs px-3 py-1.5 rounded-full" style={{ background: 'rgba(0,0,0,0.3)', color: '#44ff88' }}>
+              👥 المتصلون الآن: {onlineCount}
+            </span>
           </div>
-        </div>
-
-        {/* Online count */}
-        <div className="px-4 mb-4 text-center relative z-10">
-          <span className="text-sm px-4 py-2 rounded-full" style={{ background: '#1a1a28', color: '#5a9a5a' }}>
-            👥 المتصلون الآن: {onlineCount}
-          </span>
         </div>
 
         {/* Bottom Nav */}
-        <div className="fixed bottom-0 left-0 right-0 p-3 flex justify-center gap-3 relative z-10" style={{ background: 'rgba(18, 18, 26, 0.95)', borderTop: '1px solid #2a2a3e', backdropFilter: 'blur(10px)' }}>
-          <button className="fantasy-btn flex-1" onClick={() => setScreen('gameplay')}>
-            العب
-          </button>
-          <button className="fantasy-btn-secondary flex-1" onClick={() => setScreen('profile')}>
-            ملفي
-          </button>
-          <button className="fantasy-btn-secondary flex-1" onClick={() => setScreen('characterSelect')}>
-            الشخصيات
-          </button>
-        </div>
+        <BottomNav activeTab="settings" />
       </div>
     );
   };
@@ -1003,148 +1026,167 @@ export default function GamePage() {
     const sideChars = (save?.sideCharacterIds || []).map(id => getCharacter(id)).filter(Boolean) as Character[];
 
     return (
-      <div className="min-h-screen pb-24 p-4" style={{ background: 'linear-gradient(180deg, #0a0a0f 0%, #070709 100%)' }}>
-        <h2 className="text-2xl font-bold text-center mb-4 font-serif-heading" style={{ color: '#8b7355' }}>
-          الملف الشخصي
-        </h2>
-
-        {/* Main Character */}
-        <div className="game-card p-5 mb-4 text-center">
-          <span className="text-5xl block mb-2">{char?.emoji}</span>
-          <h3 className="text-xl font-bold" style={{ color: '#8b7355' }}>{save?.name}</h3>
-          <p style={{ color: '#7a7a8a' }}>{char?.name} - {char?.classAr}</p>
-
-          {/* Resource Bars */}
-          {save && (
-            <div className="mt-4 space-y-2">
-              <ResourceBar value={save.resources.health} max={save.resources.maxHealth} color="#b05050" label="الصحة" emoji="❤️" />
-              <ResourceBar value={save.resources.mana} max={save.resources.maxMana} color="#3b82f6" label="المانا" emoji="💎" />
+      <div className="game-viewport" style={{ background: 'linear-gradient(180deg, #0d0d15 0%, #070709 100%)' }}>
+        {/* Top Bar */}
+        <div className="top-bar py-2.5 px-4">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">{char?.emoji}</span>
+            <div className="flex-1 min-w-0">
+              <span className="font-bold text-sm golden-text">{save?.name}</span>
+              <span className="text-xs" style={{ color: '#7a7a8a' }}> {char?.classAr}</span>
             </div>
-          )}
-
-          <div className="grid grid-cols-3 gap-2 mt-4 text-sm">
-            <div className="p-2 rounded-lg" style={{ background: '#12121a' }}>
-              <span style={{ color: '#8b7355' }}>💰 ذهب</span>
-              <div className="font-bold" style={{ color: '#c8c8d0' }}>{save?.resources.gold}</div>
-            </div>
-            <div className="p-2 rounded-lg" style={{ background: '#12121a' }}>
-              <span style={{ color: '#5a9a5a' }}>⭐ سمعة</span>
-              <div className="font-bold" style={{ color: '#c8c8d0' }}>{save?.resources.reputation}</div>
-            </div>
-            <div className="p-2 rounded-lg" style={{ background: '#12121a' }}>
-              <span style={{ color: '#8b5cf6' }}>📚 معرفة</span>
-              <div className="font-bold" style={{ color: '#c8c8d0' }}>{save?.resources.knowledge}</div>
+            <div className="flex gap-1.5 flex-wrap justify-end">
+              <ResourceIcon emoji="❤️" value={save?.resources.health || 0} color="#ff4444" />
+              <ResourceIcon emoji="💎" value={save?.resources.mana || 0} color="#4488ff" />
+              <ResourceIcon emoji="💰" value={save?.resources.gold || 0} color="#ffcc00" />
             </div>
           </div>
-
-          {/* Character Stats */}
-          {char && (
-            <div className="mt-4 space-y-1">
-              {[
-                { label: 'القوة', key: 'strength', value: getEffectiveStat(char, 'strength', save?.bonusStats || {}), color: '#b05050' },
-                { label: 'الذكاء', key: 'intelligence', value: getEffectiveStat(char, 'intelligence', save?.bonusStats || {}), color: '#8b5cf6' },
-                { label: 'الحظ', key: 'luck', value: getEffectiveStat(char, 'luck', save?.bonusStats || {}), color: '#5a9a5a' },
-                { label: 'الكاريزما', key: 'charisma', value: getEffectiveStat(char, 'charisma', save?.bonusStats || {}), color: '#8b7355' },
-                { label: 'المانا', key: 'mana', value: getEffectiveStat(char, 'mana', save?.bonusStats || {}), color: '#3b82f6' },
-                { label: 'الدفاع', key: 'defense', value: getEffectiveStat(char, 'defense', save?.bonusStats || {}), color: '#f97316' },
-              ].map((stat) => (
-                <div key={stat.key} className="flex items-center gap-2 text-sm">
-                  <span className="w-14 text-right" style={{ color: '#7a7a8a' }}>{stat.label}</span>
-                  <div className="flex-1 stat-bar">
-                    <div className="stat-bar-fill" style={{ width: `${(stat.value / 8) * 100}%`, background: stat.color }} />
-                  </div>
-                  <span className="w-5 text-center font-bold" style={{ color: stat.color }}>{stat.value}</span>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
-        {/* Allies */}
-        <div className="game-card p-4 mb-4">
-          <h3 className="font-bold mb-2" style={{ color: '#8b7355' }}>👥 الحلفاء ({save?.allies.length || 0}/3)</h3>
-          {save?.allies.length === 0 ? (
-            <p className="text-sm" style={{ color: '#7a7a8a' }}>لا يوجد حلفاء بعد - ستجدهم في رحلتك!</p>
-          ) : (
-            <div className="space-y-2">
-              {save?.allies.map((ally) => {
-                const allyChar = getCharacter(ally.characterId);
-                return (
-                  <div key={ally.characterId} className="flex items-center gap-2 p-2 rounded-lg" style={{ background: '#12121a' }}>
-                    <span className="text-2xl">{allyChar?.emoji}</span>
-                    <div className="flex-1">
-                      <div className="font-bold text-sm" style={{ color: '#c8c8d0' }}>{ally.name}</div>
-                      <div className="text-xs" style={{ color: '#5a9a5a' }}>{ally.passiveAbilityAr}</div>
+        {/* Content */}
+        <div className="content-area p-3">
+          {/* Main Character Card */}
+          <div className="event-card p-4 mb-3 text-center">
+            <span className="text-4xl block mb-2">{char?.emoji}</span>
+            <h3 className="text-lg font-bold golden-text">{save?.name}</h3>
+            <p className="text-xs mb-2" style={{ color: '#7a7a8a' }}>{char?.name} - {char?.classAr}</p>
+
+            {/* Resource Icons Row */}
+            {save && (
+              <div className="flex gap-2 justify-center flex-wrap mb-3">
+                <ResourceIcon emoji="❤️" value={save.resources.health} color="#ff4444" />
+                <ResourceIcon emoji="💎" value={save.resources.mana} color="#4488ff" />
+                <ResourceIcon emoji="💰" value={save.resources.gold} color="#ffcc00" />
+                <ResourceIcon emoji="⭐" value={save.resources.reputation} color="#44ff88" />
+                <ResourceIcon emoji="📚" value={save.resources.knowledge} color="#a78bfa" />
+              </div>
+            )}
+
+            {/* Health/Mana mini bars */}
+            {save && (
+              <div className="space-y-1.5 mb-3">
+                <div>
+                  <div className="flex justify-between text-xs mb-0.5">
+                    <span style={{ color: '#ff4444' }}>❤️ صحة</span>
+                    <span style={{ color: '#c8c8d0' }}>{save.resources.health}/{save.resources.maxHealth}</span>
+                  </div>
+                  <div className="health-mini-bar">
+                    <div className="health-mini-fill" style={{ width: `${(save.resources.health / save.resources.maxHealth) * 100}%`, background: 'linear-gradient(90deg, #ff4444, #ff6666)' }} />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs mb-0.5">
+                    <span style={{ color: '#4488ff' }}>💎 مانا</span>
+                    <span style={{ color: '#c8c8d0' }}>{save.resources.mana}/{save.resources.maxMana}</span>
+                  </div>
+                  <div className="health-mini-bar">
+                    <div className="health-mini-fill" style={{ width: `${(save.resources.mana / save.resources.maxMana) * 100}%`, background: 'linear-gradient(90deg, #4488ff, #66aaff)' }} />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Character Stats */}
+            {char && (
+              <div className="grid grid-cols-3 gap-1">
+                {[
+                  { label: 'القوة', key: 'strength', value: getEffectiveStat(char, 'strength', save?.bonusStats || {}), color: '#ff4444' },
+                  { label: 'الذكاء', key: 'intelligence', value: getEffectiveStat(char, 'intelligence', save?.bonusStats || {}), color: '#a78bfa' },
+                  { label: 'الحظ', key: 'luck', value: getEffectiveStat(char, 'luck', save?.bonusStats || {}), color: '#44ff88' },
+                  { label: 'الكاريزما', key: 'charisma', value: getEffectiveStat(char, 'charisma', save?.bonusStats || {}), color: '#d4a017' },
+                  { label: 'المانا', key: 'mana', value: getEffectiveStat(char, 'mana', save?.bonusStats || {}), color: '#4488ff' },
+                  { label: 'الدفاع', key: 'defense', value: getEffectiveStat(char, 'defense', save?.bonusStats || {}), color: '#ff8844' },
+                ].map((stat) => (
+                  <div key={stat.key} className="p-1.5 rounded text-center" style={{ background: 'rgba(0,0,0,0.3)' }}>
+                    <div className="text-xs" style={{ color: '#7a7a8a' }}>{stat.label}</div>
+                    <div className="font-bold text-sm" style={{ color: stat.color }}>{stat.value}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Allies */}
+          <div className="event-card p-3 mb-3">
+            <h3 className="font-bold mb-2 text-sm golden-text">👥 الحلفاء ({save?.allies.length || 0}/3)</h3>
+            {save?.allies.length === 0 ? (
+              <p className="text-xs" style={{ color: '#7a7a8a' }}>لا يوجد حلفاء بعد - ستجدهم في رحلتك!</p>
+            ) : (
+              <div className="flex gap-2 flex-wrap">
+                {save?.allies.map((ally) => {
+                  const allyChar = getCharacter(ally.characterId);
+                  return (
+                    <div key={ally.characterId} className="flex items-center gap-1 p-1.5 rounded-lg" style={{ background: 'rgba(0,0,0,0.3)' }}>
+                      <span className="text-lg">{allyChar?.emoji}</span>
+                      <div>
+                        <div className="font-bold text-xs" style={{ color: '#c8c8d0' }}>{ally.name}</div>
+                        <div className="text-xs" style={{ color: '#44ff88', fontSize: '0.6rem' }}>{ally.passiveAbilityAr}</div>
+                      </div>
                     </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Side Characters */}
+          {sideChars.length > 0 && (
+            <div className="event-card p-3 mb-3">
+              <h3 className="font-bold mb-2 text-sm golden-text">📋 الشخصيات الجانبية</h3>
+              <div className="flex gap-1.5 flex-wrap">
+                {sideChars.map(c => (
+                  <div key={c.id} className="flex items-center gap-1 p-1.5 rounded-lg text-xs" style={{ background: 'rgba(0,0,0,0.3)' }}>
+                    <span>{c.emoji}</span>
+                    <span style={{ color: '#c8c8d0' }}>{c.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Achievements */}
+          <div className="event-card p-3 mb-3">
+            <h3 className="font-bold mb-2 text-sm golden-text">🏅 الإنجازات ({save?.achievements.length || 0}/20)</h3>
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
+              {ACHIEVEMENTS.map(ach => {
+                const unlocked = save?.achievements.includes(ach.id);
+                return (
+                  <div
+                    key={ach.id}
+                    className={`p-1.5 rounded-lg text-center text-xs transition-all ${unlocked ? '' : 'opacity-25 grayscale'}`}
+                    style={{ background: 'rgba(0,0,0,0.3)', border: unlocked ? '1px solid rgba(212, 160, 23, 0.4)' : '1px solid transparent' }}
+                  >
+                    <span className="text-lg block">{ach.emoji}</span>
+                    <div className="font-bold mt-0.5" style={{ color: unlocked ? '#d4a017' : '#555', fontSize: '0.6rem' }}>{ach.name}</div>
                   </div>
                 );
               })}
             </div>
-          )}
-        </div>
-
-        {/* Side Characters */}
-        {sideChars.length > 0 && (
-          <div className="game-card p-4 mb-4">
-            <h3 className="font-bold mb-2" style={{ color: '#8b7355' }}>📋 الشخصيات الجانبية</h3>
-            <div className="flex gap-2 flex-wrap">
-              {sideChars.map(c => (
-                <div key={c.id} className="flex items-center gap-1 p-2 rounded-lg text-sm" style={{ background: '#12121a' }}>
-                  <span>{c.emoji}</span>
-                  <span style={{ color: '#c8c8d0' }}>{c.name}</span>
-                </div>
-              ))}
-            </div>
           </div>
-        )}
 
-        {/* Achievements */}
-        <div className="game-card p-4 mb-4">
-          <h3 className="font-bold mb-3" style={{ color: '#8b7355' }}>🏅 الإنجازات ({save?.achievements.length || 0}/20)</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {ACHIEVEMENTS.map(ach => {
-              const unlocked = save?.achievements.includes(ach.id);
-              return (
-                <div
-                  key={ach.id}
-                  className={`p-2 rounded-lg text-center text-xs transition-all ${unlocked ? '' : 'opacity-30 grayscale'}`}
-                  style={{ background: '#12121a', border: unlocked ? '1px solid #8b7355' : '1px solid #333' }}
-                >
-                  <span className="text-xl block">{ach.emoji}</span>
-                  <div className="font-bold mt-1" style={{ color: unlocked ? '#8b7355' : '#555' }}>{ach.name}</div>
-                  <div style={{ color: unlocked ? '#7a7a8a' : '#333' }}>{ach.description}</div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Game Stats */}
-        <div className="game-card p-4 mb-4 text-sm">
-          <h3 className="font-bold mb-3" style={{ color: '#8b7355' }}>📊 إحصائيات اللعبة</h3>
-          <div className="space-y-2" style={{ color: '#c8c8d0' }}>
-            <div className="flex justify-between"><span>أعلى نقاط:</span><span style={{ color: '#8b7355' }}>{save?.highestScore}</span></div>
-            <div className="flex justify-between"><span>مرات الإكمال:</span><span style={{ color: '#8b7355' }}>{save?.completions}</span></div>
-            <div className="flex justify-between"><span>أحداث مكتملة:</span><span style={{ color: '#8b7355' }}>{save?.totalEventsCompleted}</span></div>
-            <div className="flex justify-between"><span>معارك بالهروب:</span><span style={{ color: '#8b7355' }}>{save?.battlesFled}</span></div>
-            <div className="flex justify-between"><span>معارك بالمفاوضة:</span><span style={{ color: '#8b7355' }}>{save?.battlesNegotiated}</span></div>
-            <div className="flex justify-between"><span>ألغاز محلولة:</span><span style={{ color: '#8b7355' }}>{save?.puzzlesSolved}</span></div>
-            <div className="flex justify-between"><span>مرات الموت:</span><span style={{ color: '#b05050' }}>{save?.deathCount}</span></div>
-            <div className="flex justify-between">
-              <span>وقت اللعب:</span>
-              <span style={{ color: '#8b7355' }}>
-                {save?.startTime ? formatTime(Date.now() - save.startTime) : '0د'}
-              </span>
+          {/* Game Stats */}
+          <div className="event-card p-3 mb-3 text-xs">
+            <h3 className="font-bold mb-2 text-sm golden-text">📊 إحصائيات اللعبة</h3>
+            <div className="space-y-1" style={{ color: '#c8c8d0' }}>
+              <div className="flex justify-between"><span>أعلى نقاط:</span><span style={{ color: '#d4a017' }}>{save?.highestScore}</span></div>
+              <div className="flex justify-between"><span>مرات الإكمال:</span><span style={{ color: '#d4a017' }}>{save?.completions}</span></div>
+              <div className="flex justify-between"><span>أحداث مكتملة:</span><span style={{ color: '#d4a017' }}>{save?.totalEventsCompleted}</span></div>
+              <div className="flex justify-between"><span>معارك بالهروب:</span><span style={{ color: '#d4a017' }}>{save?.battlesFled}</span></div>
+              <div className="flex justify-between"><span>معارك بالمفاوضة:</span><span style={{ color: '#d4a017' }}>{save?.battlesNegotiated}</span></div>
+              <div className="flex justify-between"><span>ألغاز محلولة:</span><span style={{ color: '#d4a017' }}>{save?.puzzlesSolved}</span></div>
+              <div className="flex justify-between"><span>مرات الموت:</span><span style={{ color: '#ff4444' }}>{save?.deathCount}</span></div>
+              <div className="flex justify-between">
+                <span>وقت اللعب:</span>
+                <span style={{ color: '#d4a017' }}>
+                  {save?.startTime ? formatTime(Date.now() - save.startTime) : '0د'}
+                </span>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Back Button */}
-        <div className="fixed bottom-0 left-0 right-0 p-3" style={{ background: 'linear-gradient(180deg, transparent, #12121a 30%)', zIndex: 40 }}>
-          <button className="fantasy-btn w-full" onClick={() => setScreen('kingdom')}>
-            العودة للمملكة
-          </button>
-        </div>
+        {/* Bottom Nav */}
+        <BottomNav activeTab="profile" />
       </div>
     );
   };
@@ -1163,41 +1205,56 @@ export default function GamePage() {
     // Stat Point Mode
     if (statPointMode) {
       return (
-        <div className="min-h-screen flex flex-col items-center justify-center p-6 relative">
+        <div className="game-viewport" style={{ background: 'linear-gradient(180deg, #0d0d15 0%, #070709 100%)' }}>
           {region?.backgroundImage && (
             <div className="region-bg" style={{ backgroundImage: `url(${region.backgroundImage})` }} />
           )}
-          <div className="event-card-visual p-6 max-w-md w-full text-center fade-in relative z-10">
-            <span className="text-4xl block mb-4 fade-in">■</span>
-            <h2 className="text-2xl font-bold mb-2 font-serif-heading" style={{ color: '#8b7355' }}>منطقة مكتملة</h2>
-            <p className="mb-2" style={{ color: '#5a9a5a' }}>لقد أكملت {region?.name} {region?.emoji}</p>
-            <p className="mb-4" style={{ color: '#c8c8d0' }}>لديك {statPoints} نقطة إحصائية. اختر أين تضعها:</p>
-
-            {char && [
-              { key: 'strength', label: 'القوة', value: getEffectiveStat(char, 'strength', save.bonusStats), color: '#b05050' },
-              { key: 'intelligence', label: 'الذكاء', value: getEffectiveStat(char, 'intelligence', save.bonusStats), color: '#8b5cf6' },
-              { key: 'luck', label: 'الحظ', value: getEffectiveStat(char, 'luck', save.bonusStats), color: '#5a9a5a' },
-              { key: 'charisma', label: 'الكاريزما', value: getEffectiveStat(char, 'charisma', save.bonusStats), color: '#8b7355' },
-              { key: 'mana', label: 'المانا', value: getEffectiveStat(char, 'mana', save.bonusStats), color: '#3b82f6' },
-              { key: 'defense', label: 'الدفاع', value: getEffectiveStat(char, 'defense', save.bonusStats), color: '#f97316' },
-            ].map(stat => (
-              <button
-                key={stat.key}
-                className="w-full text-right p-3 rounded-lg mb-2 flex justify-between items-center transition-all hover:scale-[1.02]"
-                style={{ background: '#12121a', border: `2px solid ${stat.color}`, color: '#c8c8d0' }}
-                onClick={() => applyStatPoint(stat.key)}
-              >
-                <span>{stat.label} ({stat.value})</span>
-                <span style={{ color: stat.color }}>+1 ➕</span>
-              </button>
-            ))}
-
-            {statPoints <= 0 && (
-              <button className="fantasy-btn w-full mt-4" onClick={() => setStatPointMode(false)}>
-                المتابعة
-              </button>
-            )}
+          {/* Top Bar */}
+          <div className="top-bar py-2 px-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">{char?.emoji}</span>
+              <span className="font-bold text-sm golden-text">{char?.name}</span>
+              <span className="mr-auto text-xs" style={{ color: '#7a7a8a' }}>{region?.emoji} {region?.name}</span>
+            </div>
           </div>
+
+          {/* Content */}
+          <div className="flex-1 flex flex-col items-center justify-center p-4 relative z-10">
+            <div className="event-card p-5 max-w-sm w-full text-center fade-in">
+              <span className="text-3xl block mb-3">■</span>
+              <h2 className="text-xl font-bold mb-1 font-serif-heading golden-text">منطقة مكتملة</h2>
+              <p className="mb-1 text-sm" style={{ color: '#44ff88' }}>لقد أكملت {region?.name} {region?.emoji}</p>
+              <p className="mb-3 text-xs" style={{ color: '#c8c8d0' }}>لديك {statPoints} نقطة إحصائية. اختر أين تضعها:</p>
+
+              <div className="grid grid-cols-2 gap-2">
+                {char && [
+                  { key: 'strength', label: 'القوة', value: getEffectiveStat(char, 'strength', save.bonusStats), color: '#ff4444' },
+                  { key: 'intelligence', label: 'الذكاء', value: getEffectiveStat(char, 'intelligence', save.bonusStats), color: '#a78bfa' },
+                  { key: 'luck', label: 'الحظ', value: getEffectiveStat(char, 'luck', save.bonusStats), color: '#44ff88' },
+                  { key: 'charisma', label: 'الكاريزما', value: getEffectiveStat(char, 'charisma', save.bonusStats), color: '#d4a017' },
+                  { key: 'mana', label: 'المانا', value: getEffectiveStat(char, 'mana', save.bonusStats), color: '#4488ff' },
+                  { key: 'defense', label: 'الدفاع', value: getEffectiveStat(char, 'defense', save.bonusStats), color: '#ff8844' },
+                ].map(stat => (
+                  <button
+                    key={stat.key}
+                    className="text-right p-2 rounded-lg flex justify-between items-center transition-all hover:scale-[1.02]"
+                    style={{ background: 'rgba(0,0,0,0.3)', border: `1px solid ${stat.color}40`, color: '#c8c8d0', fontSize: '0.8rem' }}
+                    onClick={() => applyStatPoint(stat.key)}
+                  >
+                    <span>{stat.label} ({stat.value})</span>
+                    <span style={{ color: stat.color }}>+1</span>
+                  </button>
+                ))}
+              </div>
+
+              {statPoints <= 0 && (
+                <button className="glow-btn w-full mt-3" onClick={() => setStatPointMode(false)}>
+                  المتابعة
+                </button>
+              )}
+            </div>
+          </div>
+          <BottomNav activeTab="story" />
         </div>
       );
     }
@@ -1205,22 +1262,32 @@ export default function GamePage() {
     // Game Complete / No more events
     if (!currentEvent) {
       return (
-        <div className="min-h-screen flex flex-col items-center justify-center p-6 relative">
+        <div className="game-viewport" style={{ background: 'linear-gradient(180deg, #0d0d15 0%, #070709 100%)' }}>
           {region?.backgroundImage && (
             <div className="region-bg" style={{ backgroundImage: `url(${region.backgroundImage})` }} />
           )}
-          <div className="event-card-visual p-6 max-w-md w-full text-center fade-in relative z-10">
-            <span className="text-5xl block mb-4">🏆</span>
-            <h2 className="text-2xl font-bold mb-4" style={{ color: '#8b7355' }}>اكتملت المغامرة!</h2>
-            <p className="mb-4" style={{ color: '#7a7a8a' }}>استكشفت كل المناطق المتاحة</p>
-            <button className="fantasy-btn w-full" onClick={() => setScreen('kingdom')}>العودة للمملكة</button>
+          <div className="top-bar py-2 px-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">{char?.emoji}</span>
+              <span className="font-bold text-sm golden-text">{char?.name}</span>
+            </div>
           </div>
+          <div className="flex-1 flex flex-col items-center justify-center p-4 relative z-10">
+            <div className="event-card p-5 max-w-sm w-full text-center fade-in">
+              <span className="text-4xl block mb-3">🏆</span>
+              <h2 className="text-xl font-bold mb-2 font-serif-heading golden-text">اكتملت المغامرة!</h2>
+              <p className="mb-3 text-sm" style={{ color: '#7a7a8a' }}>استكشفت كل المناطق المتاحة</p>
+              <button className="glow-btn w-full" onClick={() => setScreen('kingdom')}>العودة للمملكة</button>
+            </div>
+          </div>
+          <BottomNav activeTab="story" />
         </div>
       );
     }
 
+    // Main Gameplay - Single Screen
     return (
-      <div className={`min-h-screen flex flex-col relative ${battleEffect === 'shake' ? 'screen-shake' : ''} ${battleEffect === 'damage' ? 'damage-flash' : ''} ${battleEffect === 'heal' ? 'heal-flash' : ''}`}>
+      <div className={`game-viewport ${battleEffect === 'shake' ? 'screen-shake' : ''}`} style={{ background: 'linear-gradient(180deg, #0d0d15 0%, #070709 100%)' }}>
         {/* Region Background Image */}
         {region?.backgroundImage && (
           <div className="region-bg" style={{ backgroundImage: `url(${region.backgroundImage})` }} />
@@ -1229,177 +1296,181 @@ export default function GamePage() {
         {/* Damage Numbers */}
         {damageNumbers.map(d => (
           <div key={d.id} className="damage-number" style={{ left: `${d.x}%`, top: `${d.y}%`, color: d.color }}>
-            {d.color === '#5a9a5a' ? '+' : '-'}{d.value}
+            {d.color === '#44ff88' ? '+' : '-'}{d.value}
           </div>
         ))}
 
-        {/* Top Resource Bar */}
-        <div className="p-3 relative z-10" style={{ background: 'rgba(18, 18, 26, 0.95)', borderBottom: '1px solid #2a2a3e', backdropFilter: 'blur(10px)' }}>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-2xl">{char?.emoji}</span>
-            <span className="font-bold" style={{ color: '#8b7355' }}>{char?.name}</span>
-            <span className="text-xs px-2 rounded-full" style={{ background: '#2a2a3e', color: '#7a7a8a' }}>{char?.classAr}</span>
-            <span className="mr-auto text-xs" style={{ color: '#7a7a8a' }}>{region?.emoji} {region?.name}</span>
+        {/* Top Bar - Compact Resources */}
+        <div className="top-bar py-1.5 px-3 relative z-10">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xl">{char?.emoji}</span>
+            <div className="flex-shrink-0">
+              <span className="font-bold text-xs golden-text">{char?.name}</span>
+              <span className="text-xs" style={{ color: '#7a7a8a' }}> {char?.classAr}</span>
+            </div>
+            <div className="mr-auto flex gap-1 flex-wrap justify-end items-center">
+              <ResourceIcon emoji="❤️" value={res.health} color="#ff4444" />
+              <ResourceIcon emoji="💎" value={res.mana} color="#4488ff" />
+              <ResourceIcon emoji="💰" value={res.gold} color="#ffcc00" />
+              <ResourceIcon emoji="⭐" value={res.reputation} color="#44ff88" />
+              <ResourceIcon emoji="📚" value={res.knowledge} color="#a78bfa" />
+            </div>
           </div>
-
-          <ResourceBar value={res.health} max={res.maxHealth} color="#b05050" label="الصحة" emoji="❤️" />
-          <ResourceBar value={res.mana} max={res.maxMana} color="#3b82f6" label="المانا" emoji="💎" />
-
-          <div className="flex gap-3 text-xs mt-2">
-            <span style={{ color: '#8b7355' }}>💰 {res.gold}</span>
-            <span style={{ color: '#5a9a5a' }}>⭐ {res.reputation}</span>
-            <span style={{ color: '#8b5cf6' }}>📚 {res.knowledge}</span>
-            <span style={{ color: '#f97316' }}>👥 {save.allies.length}/3</span>
+          {/* Health/Mana mini bars */}
+          <div className="flex gap-2 mt-1">
+            <div className="flex-1">
+              <div className="health-mini-bar">
+                <div className="health-mini-fill" style={{ width: `${(res.health / res.maxHealth) * 100}%`, background: 'linear-gradient(90deg, #ff4444, #ff6666)' }} />
+              </div>
+            </div>
+            <div className="flex-1">
+              <div className="health-mini-bar">
+                <div className="health-mini-fill" style={{ width: `${(res.mana / res.maxMana) * 100}%`, background: 'linear-gradient(90deg, #4488ff, #66aaff)' }} />
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Event Progress */}
-        <div className="px-3 py-1 text-center text-xs relative z-10" style={{ background: 'rgba(26, 10, 46, 0.9)', color: '#7a7a8a' }}>
-          الحدث {save.eventIndex + 1} من {events.length} — {region?.name} {region?.emoji}
+        <div className="px-3 py-1 text-center text-xs relative z-10" style={{ background: 'rgba(10, 10, 15, 0.8)', color: '#7a7a8a' }}>
+          الحدث {save.eventIndex + 1} من {events.length} — {region?.emoji} {region?.name}
+          {save.allies.length > 0 && (
+            <span className="mr-2">
+              {' '}| {save.allies.map(ally => {
+                const allyChar = getCharacter(ally.characterId);
+                return allyChar?.emoji || '👤';
+              }).join(' ')}
+            </span>
+          )}
         </div>
 
-        {/* Ally Indicators */}
-        {save.allies.length > 0 && (
-          <div className="flex gap-1 px-3 py-1 relative z-10" style={{ background: 'rgba(18, 18, 26, 0.7)' }}>
-            {save.allies.map(ally => {
-              const allyChar = getCharacter(ally.characterId);
-              return (
-                <span key={ally.characterId} className="text-lg" title={ally.name}>
-                  {allyChar?.emoji || '👤'}
-                </span>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Main Event Area */}
-        <div className="flex-1 p-4 overflow-y-auto relative z-10">
+        {/* Main Event Area - Takes remaining space */}
+        <div className="flex-1 p-2.5 overflow-y-auto relative z-10" style={{ minHeight: 0 }}>
           {!eventOutcome ? (
             <div className="fade-in">
-              {/* Event Card with Visual */}
-              <div className="event-card-visual p-5 mb-4">
-                {/* Monster Image for Battle Events */}
-                {currentEvent.type === 'battle' && (() => {
-                  const enemies = REGION_ENEMIES[region?.id] || [];
-                  const enemy = enemies[save.eventIndex % enemies.length];
-                  return enemy ? (
-                    <div className="monster-appear mb-4">
-                      <div className="monster-image-container battle-overlay rounded-xl overflow-hidden" style={{ background: 'rgba(0,0,0,0.3)', minHeight: '180px' }}>
-                        {enemy.image ? (
-                          <img src={enemy.image} alt={enemy.name} className="monster-appear" style={{ maxHeight: '200px' }} />
-                        ) : (
-                          <span className="text-7xl block py-8">{enemy.emoji}</span>
-                        )}
-                      </div>
-                      {/* Enemy Info Bar */}
-                      <div className="mt-3 p-3 rounded-xl" style={{ background: 'rgba(220, 38, 38, 0.15)', border: '1px solid rgba(220, 38, 38, 0.4)' }}>
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="font-bold text-lg" style={{ color: '#b05050' }}>{enemy.emoji} {enemy.name}</span>
-                          <span className="text-xs px-2 py-1 rounded-full" style={{ background: 'rgba(220, 38, 38, 0.3)', color: '#b05050' }}>⚔️ معركة</span>
-                        </div>
-                        <div className="monster-hp-bar mb-2">
-                          <div className="monster-hp-fill" style={{ width: '100%' }} />
-                        </div>
-                        <div className="flex gap-4 text-sm justify-center">
-                          <span style={{ color: '#b05050' }}>❤️ {enemy.health}</span>
-                          <span style={{ color: '#f97316' }}>⚔️ ضرر: {enemy.damage}</span>
-                          <span style={{ color: '#8b7355' }}>💰 جائزة: {enemy.goldReward}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ) : null;
-                })()}
-
-                {/* Non-battle event header */}
-                {currentEvent.type !== 'battle' && (
-                  <div className="text-center mb-3">
-                    {currentEvent.image ? (
-                      <div className="event-image-container mb-3 rounded-xl overflow-hidden" style={{ background: 'rgba(0,0,0,0.3)', minHeight: '160px' }}>
-                        <img
-                          src={currentEvent.image}
-                          alt={currentEvent.title}
-                          className="w-full object-cover"
-                          style={{ maxHeight: '220px', objectPosition: 'center top' }}
-                        />
-                      </div>
-                    ) : (
-                      <span className="text-4xl block mb-2">{currentEvent.emoji}</span>
-                    )}
-                    <h3 className="text-xl font-bold" style={{ color: '#8b7355' }}>{currentEvent.title}</h3>
-                    <span className="text-xs px-3 py-1 rounded-full inline-block mt-1" style={{ background: '#2a2a3e', color: '#7a7a8a' }}>
-                      {currentEvent.type === 'puzzle' ? '🧩 لغز' :
-                       currentEvent.type === 'merchant' ? '🏪 تاجر' :
-                       currentEvent.type === 'encounter' ? '🤝 لقاء' :
-                       currentEvent.type === 'comedy' ? '😂 حدث مضحك' :
-                       currentEvent.type === 'crossroads' ? '🗺️ مفترق طرق' :
-                       '🔮 حدث سري'}
-                    </span>
-                  </div>
-                )}
-
-                {/* Battle event title (shown below image) */}
-                {currentEvent.type === 'battle' && (
-                  <div className="text-center mb-3">
-                    <h3 className="text-xl font-bold" style={{ color: '#8b7355' }}>{currentEvent.title}</h3>
-                  </div>
-                )}
-
-                <p className="text-base leading-relaxed mb-4" style={{ color: '#c8c8d0' }}>
-                  {currentEvent.description}
-                </p>
-
-                {/* Lina Foresight */}
-                {linaForesight && (
-                  <div className="mb-4 p-3 rounded-lg" style={{ background: 'rgba(212, 160, 23, 0.15)', border: '1px solid #8b7355' }}>
-                    <p className="text-xs font-bold mb-2" style={{ color: '#8b7355' }}>👁️ بصيرة لينا - نتيجة الخيارات:</p>
-                    {currentEvent.options.map((opt, i) => (
-                      <div key={i} className="text-xs p-1.5 rounded mb-1" style={{ background: 'rgba(107, 63, 160, 0.3)', color: '#8b7355' }}>
-                        خيار {i + 1}: {opt.outcome.success.text.substring(0, 50)}...
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Options */}
-                <div className="space-y-3">
-                  {currentEvent.options.map((option, i) => (
-                    <button
-                      key={i}
-                      className="battle-option"
-                      onClick={() => processOutcome(option, save)}
-                    >
-                      <span className="text-base">{option.text}</span>
-                      {option.statCheck && (
-                        <div className="text-xs mt-1" style={{ color: '#7a7a8a' }}>
-                          يتطلب: {STAT_NAMES[option.statCheck] || option.statCheck} {option.statThreshold}+
-                          {char && (
-                            <span style={{ color: '#5a9a5a' }}>
-                              {' '}(لديك: {getEffectiveStat(char, option.statCheck, save.bonusStats)})
-                            </span>
-                          )}
+              {/* Event Image - Central Visual */}
+              {currentEvent.type === 'battle' && (() => {
+                const enemies = REGION_ENEMIES[region?.id] || [];
+                const enemy = enemies[save.eventIndex % enemies.length];
+                return enemy ? (
+                  <div className="mb-2">
+                    <div className="scene-frame monster-appear" style={{ background: 'rgba(0,0,0,0.3)' }}>
+                      {enemy.image ? (
+                        <img src={enemy.image} alt={enemy.name} className="monster-appear w-full" style={{ maxHeight: '160px', objectFit: 'cover' }} />
+                      ) : (
+                        <div className="flex items-center justify-center py-6">
+                          <span className="text-5xl">{enemy.emoji}</span>
                         </div>
                       )}
-                    </button>
-                  ))}
+                    </div>
+                    {/* Enemy Info */}
+                    <div className="mt-1.5 p-2 rounded-lg" style={{ background: 'rgba(255, 68, 68, 0.08)', border: '1px solid rgba(255, 68, 68, 0.25)' }}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-bold text-sm" style={{ color: '#ff4444' }}>{enemy.emoji} {enemy.name}</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(255, 68, 68, 0.15)', color: '#ff4444' }}>⚔️ معركة</span>
+                      </div>
+                      <div className="monster-hp-bar mb-1">
+                        <div className="monster-hp-fill" style={{ width: '100%' }} />
+                      </div>
+                      <div className="flex gap-3 text-xs justify-center">
+                        <span style={{ color: '#ff4444' }}>❤️ {enemy.health}</span>
+                        <span style={{ color: '#ff8844' }}>⚔️ {enemy.damage}</span>
+                        <span style={{ color: '#ffcc00' }}>💰 {enemy.goldReward}</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : null;
+              })()}
+
+              {/* Non-battle event image */}
+              {currentEvent.type !== 'battle' && (
+                <div className="mb-2 text-center">
+                  {currentEvent.image ? (
+                    <div className="scene-frame mb-1.5">
+                      <img
+                        src={currentEvent.image}
+                        alt={currentEvent.title}
+                        className="w-full"
+                        style={{ maxHeight: '150px', objectFit: 'cover', objectPosition: 'center top' }}
+                      />
+                    </div>
+                  ) : (
+                    <span className="text-4xl block mb-1">{currentEvent.emoji}</span>
+                  )}
                 </div>
+              )}
+
+              {/* Event Title - Golden Gradient */}
+              <h3 className="text-lg font-bold text-center mb-1 font-serif-heading golden-text">{currentEvent.title}</h3>
+
+              {/* Event Type Badge */}
+              <div className="text-center mb-1.5">
+                <span className="text-xs px-2 py-0.5 rounded-full inline-block" style={{ background: 'rgba(212, 160, 23, 0.1)', border: '1px solid rgba(212, 160, 23, 0.2)', color: '#d4a017' }}>
+                  {currentEvent.type === 'puzzle' ? '🧩 لغز' :
+                   currentEvent.type === 'merchant' ? '🏪 تاجر' :
+                   currentEvent.type === 'encounter' ? '🤝 لقاء' :
+                   currentEvent.type === 'comedy' ? '😂 حدث مضحك' :
+                   currentEvent.type === 'crossroads' ? '🗺️ مفترق طرق' :
+                   '🔮 حدث سري'}
+                </span>
               </div>
 
-              {/* Special Ability Button */}
+              {/* Event Description */}
+              <p className="text-sm leading-relaxed mb-2" style={{ color: '#c8c8d0' }}>
+                {currentEvent.description}
+              </p>
+
+              {/* Lina Foresight */}
+              {linaForesight && (
+                <div className="mb-2 p-2 rounded-lg" style={{ background: 'rgba(212, 160, 23, 0.08)', border: '1px solid rgba(212, 160, 23, 0.2)' }}>
+                  <p className="text-xs font-bold mb-1 golden-text">👁️ بصيرة لينا - نتيجة الخيارات:</p>
+                  {currentEvent.options.map((opt, i) => (
+                    <div key={i} className="text-xs p-1 rounded mb-0.5" style={{ background: 'rgba(212, 160, 23, 0.05)', color: '#d4a017' }}>
+                      خيار {i + 1}: {opt.outcome.success.text.substring(0, 40)}...
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Options - Compact Buttons */}
+              <div className="space-y-1.5">
+                {currentEvent.options.map((option, i) => (
+                  <button
+                    key={i}
+                    className="event-option"
+                    onClick={() => processOutcome(option, save)}
+                  >
+                    <span className="text-sm">{option.text}</span>
+                    {option.statCheck && (
+                      <div className="text-xs mt-0.5" style={{ color: '#7a7a8a' }}>
+                        يتطلب: {STAT_NAMES[option.statCheck] || option.statCheck} {option.statThreshold}+
+                        {char && (
+                          <span style={{ color: '#44ff88' }}>
+                            {' '}(لديك: {getEffectiveStat(char, option.statCheck, save.bonusStats)})
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {/* Special Ability Button - Small */}
               {!save.abilityUsedThisRegion && (
                 <button
-                  className="w-full p-3 rounded-lg text-center font-bold mb-3 transition-all hover:bg-[#3a3a4e]"
-                  style={{ background: '#2a2a3e', border: '1px solid #8b7355', color: '#8b7355' }}
+                  className="w-full p-2 rounded-lg text-center font-bold text-sm mt-2 transition-all hover:bg-[rgba(212,160,23,0.08)]"
+                  style={{ background: 'rgba(212, 160, 23, 0.05)', border: '1px solid rgba(212, 160, 23, 0.25)', color: '#d4a017' }}
                   onClick={useAbility}
                 >
-                  ✨ القدرة الخاصة: {char?.uniqueAbilityAr?.split(' - ')[0] || 'قدرة'}
+                  ✨ {char?.uniqueAbilityAr?.split(' - ')[0] || 'قدرة'}
                 </button>
               )}
             </div>
           ) : (
-            /* Outcome Display */
-            <div className="fade-in">
-              <div className="event-card-visual p-6 text-center">
-                <span className="text-4xl block mb-4 fade-in">
+            /* Outcome Display - Overlay Style */
+            <div className="fade-in flex flex-col items-center justify-center h-full">
+              <div className="event-card p-5 text-center max-w-sm w-full">
+                <span className="text-3xl block mb-3 fade-in">
                   {eventOutcome.includes('💀') ? '💀' :
                    eventOutcome.includes('🏆') ? '🏆' :
                    eventOutcome.includes('🔥') ? '🔥' :
@@ -1407,11 +1478,11 @@ export default function GamePage() {
                    eventOutcome.includes('🐸') ? '🐸' :
                    eventOutcome.includes('👼') ? '👼' : '✨'}
                 </span>
-                <p className="text-lg leading-relaxed mb-6" style={{ color: '#c8c8d0' }}>
+                <p className="text-sm leading-relaxed mb-4" style={{ color: '#c8c8d0' }}>
                   {eventOutcome}
                 </p>
-                <button className="fantasy-btn w-full text-lg" onClick={nextEvent}>
-                  {save.eventIndex >= (events.length - 1) ? 'المنطقة التالية' : 'المتابعة'}
+                <button className="glow-btn w-full" onClick={nextEvent}>
+                  {save.eventIndex >= (events.length - 1) ? 'المنطقة التالية ➡️' : 'المتابعة ➡️'}
                 </button>
               </div>
             </div>
@@ -1419,35 +1490,7 @@ export default function GamePage() {
         </div>
 
         {/* Bottom Navigation */}
-        <div className="p-3 flex gap-2 relative z-10" style={{ background: 'rgba(18, 18, 26, 0.95)', borderTop: '1px solid #2a2a3e', backdropFilter: 'blur(10px)' }}>
-          <button className="fantasy-btn-secondary flex-1 text-sm py-2" onClick={() => setScreen('kingdom')}>
-            المملكة
-          </button>
-          <button className="fantasy-btn-secondary flex-1 text-sm py-2" onClick={() => setScreen('profile')}>
-            ملفي
-          </button>
-          <button
-            className="fantasy-btn-secondary flex-1 text-sm py-2"
-            onClick={() => {
-              if (confirm('هل تريد إعادة اللعبة من البداية؟')) {
-                const newSave = createDefaultSave(save.name);
-                newSave.mainCharacterId = save.mainCharacterId;
-                newSave.sideCharacterIds = [...save.sideCharacterIds];
-                newSave.achievements = [...save.achievements];
-                newSave.highestScore = save.highestScore;
-                newSave.completions = save.completions;
-                newSave.firstLogin = save.firstLogin;
-                newSave.playedCharacterIds = [...save.playedCharacterIds];
-                setSave(newSave);
-                setEventOutcome(null);
-                setStatPointMode(false);
-                addFeed(`${save.name} بدأ مغامرة جديدة!`, '🔄');
-              }
-            }}
-          >
-            جديد
-          </button>
-        </div>
+        <BottomNav activeTab="story" />
       </div>
     );
   };
@@ -1459,62 +1502,64 @@ export default function GamePage() {
     const ending = ENDINGS.find(e => e.id === endingId);
     const castleBg = REGIONS[5]?.backgroundImage;
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 relative">
+      <div className="game-viewport" style={{ background: 'linear-gradient(180deg, #0d0d15 0%, #070709 100%)' }}>
         {castleBg && (
           <div className="region-bg" style={{ backgroundImage: `url(${castleBg})` }} />
         )}
-        <div className="event-card-visual p-8 max-w-md w-full text-center fade-in relative z-10">
-          <span className="text-5xl block mb-6">{ending?.emoji || '◆'}</span>
-          <h2 className="text-3xl font-bold mb-4 font-serif-heading" style={{ color: '#8b7355' }}>
-            {ending?.name || 'النهاية'}
-          </h2>
-          <p className="text-lg mb-2" style={{ color: '#c8c8d0' }}>{ending?.description}</p>
+        <div className="flex-1 flex flex-col items-center justify-center p-4 relative z-10">
+          <div className="event-card p-6 max-w-sm w-full text-center fade-in">
+            <span className="text-5xl block mb-4">{ending?.emoji || '◆'}</span>
+            <h2 className="text-2xl font-bold mb-3 font-serif-heading golden-text">
+              {ending?.name || 'النهاية'}
+            </h2>
+            <p className="text-base mb-2" style={{ color: '#c8c8d0' }}>{ending?.description}</p>
 
-          {save && (
-            <div className="mt-6 p-4 rounded-lg text-sm" style={{ background: '#12121a' }}>
-              <h4 className="font-bold mb-2" style={{ color: '#8b7355' }}>📊 ملخص المغامرة</h4>
-              <div className="space-y-1" style={{ color: '#c8c8d0' }}>
-                <div className="flex justify-between"><span>❤️ الصحة النهائية:</span><span style={{ color: '#b05050' }}>{save.resources.health}</span></div>
-                <div className="flex justify-between"><span>📚 المعرفة:</span><span style={{ color: '#8b5cf6' }}>{save.resources.knowledge}</span></div>
-                <div className="flex justify-between"><span>⭐ السمعة:</span><span style={{ color: '#5a9a5a' }}>{save.resources.reputation}</span></div>
-                <div className="flex justify-between"><span>💰 الذهب:</span><span style={{ color: '#8b7355' }}>{save.resources.gold}</span></div>
-                <div className="flex justify-between"><span>👥 الحلفاء:</span><span style={{ color: '#8b7355' }}>{save.allies.length}</span></div>
-                <div className="flex justify-between"><span>🏅 الإنجازات:</span><span style={{ color: '#8b7355' }}>{save.achievements.length}/20</span></div>
-                <div className="flex justify-between"><span>⭐ النتيجة:</span><span style={{ color: '#8b7355', fontWeight: 'bold', fontSize: '1.1rem' }}>{save.highestScore}</span></div>
-                {save.startTime && (
-                  <div className="flex justify-between"><span>⏱️ وقت اللعب:</span><span style={{ color: '#8b7355' }}>{formatTime(Date.now() - save.startTime)}</span></div>
-                )}
+            {save && (
+              <div className="mt-4 p-3 rounded-lg text-xs" style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(212, 160, 23, 0.15)' }}>
+                <h4 className="font-bold mb-2 text-sm golden-text">📊 ملخص المغامرة</h4>
+                <div className="space-y-1" style={{ color: '#c8c8d0' }}>
+                  <div className="flex justify-between"><span>❤️ الصحة النهائية:</span><span style={{ color: '#ff4444' }}>{save.resources.health}</span></div>
+                  <div className="flex justify-between"><span>📚 المعرفة:</span><span style={{ color: '#a78bfa' }}>{save.resources.knowledge}</span></div>
+                  <div className="flex justify-between"><span>⭐ السمعة:</span><span style={{ color: '#44ff88' }}>{save.resources.reputation}</span></div>
+                  <div className="flex justify-between"><span>💰 الذهب:</span><span style={{ color: '#ffcc00' }}>{save.resources.gold}</span></div>
+                  <div className="flex justify-between"><span>👥 الحلفاء:</span><span style={{ color: '#d4a017' }}>{save.allies.length}</span></div>
+                  <div className="flex justify-between"><span>🏅 الإنجازات:</span><span style={{ color: '#d4a017' }}>{save.achievements.length}/20</span></div>
+                  <div className="flex justify-between"><span>⭐ النتيجة:</span><span className="golden-text" style={{ fontWeight: 'bold', fontSize: '1rem' }}>{save.highestScore}</span></div>
+                  {save.startTime && (
+                    <div className="flex justify-between"><span>⏱️ وقت اللعب:</span><span style={{ color: '#d4a017' }}>{formatTime(Date.now() - save.startTime)}</span></div>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          <div className="mt-6 space-y-3">
-            <button className="fantasy-btn w-full text-lg" onClick={() => {
-              if (save) {
-                const newSave = createDefaultSave(save.name);
-                newSave.mainCharacterId = save.mainCharacterId;
-                newSave.sideCharacterIds = [...save.sideCharacterIds];
-                newSave.achievements = [...save.achievements];
-                newSave.highestScore = save.highestScore;
-                newSave.completions = save.completions;
-                newSave.firstLogin = save.firstLogin;
-                newSave.playedCharacterIds = [...save.playedCharacterIds];
-                setSave(newSave);
-                setEventOutcome(null);
+            <div className="mt-4 space-y-2">
+              <button className="glow-btn w-full" onClick={() => {
+                if (save) {
+                  const newSave = createDefaultSave(save.name);
+                  newSave.mainCharacterId = save.mainCharacterId;
+                  newSave.sideCharacterIds = [...save.sideCharacterIds];
+                  newSave.achievements = [...save.achievements];
+                  newSave.highestScore = save.highestScore;
+                  newSave.completions = save.completions;
+                  newSave.firstLogin = save.firstLogin;
+                  newSave.playedCharacterIds = [...save.playedCharacterIds];
+                  setSave(newSave);
+                  setEventOutcome(null);
+                  setEndingId(null);
+                  setStatPointMode(false);
+                  setScreen('gameplay');
+                  addFeed(`${save.name} بدأ مغامرة جديدة!`, '🔄');
+                }
+              }}>
+                ابدأ من جديد
+              </button>
+              <button className="fantasy-btn-secondary w-full" onClick={() => {
                 setEndingId(null);
-                setStatPointMode(false);
-                setScreen('gameplay');
-                addFeed(`${save.name} بدأ مغامرة جديدة!`, '🔄');
-              }
-            }}>
-              ابدأ من جديد
-            </button>
-            <button className="fantasy-btn-secondary w-full" onClick={() => {
-              setEndingId(null);
-              setScreen('kingdom');
-            }}>
-              العودة للمملكة
-            </button>
+                setScreen('kingdom');
+              }}>
+                العودة للمملكة
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1528,11 +1573,12 @@ export default function GamePage() {
     if (!showAchievement) return null;
     return (
       <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 slide-in" style={{
-        background: 'linear-gradient(135deg, #8b7355, #b8860b)',
-        color: '#12121a',
-        padding: '12px 24px',
-        borderRadius: '12px',
+        background: 'linear-gradient(135deg, #d4a017, #8b7355)',
+        color: '#0d0d15',
+        padding: '10px 20px',
+        borderRadius: '10px',
         fontWeight: 'bold',
+        fontSize: '0.85rem',
         boxShadow: '0 0 30px rgba(212, 160, 23, 0.5)',
       }}>
         🏅 إنجاز جديد: {showAchievement}
