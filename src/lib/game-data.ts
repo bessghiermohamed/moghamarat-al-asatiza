@@ -73,6 +73,7 @@ export interface GameEvent {
   title: string;
   description: string;
   emoji: string;
+  image?: string;
   options: EventOption[];
 }
 
@@ -467,6 +468,7 @@ export const REGIONS: Region[] = [
 // الأعداء حسب المنطقة
 // ==========================================
 const IMG = '/moghamarat-al-asatiza/game-assets/monsters';
+const EVT = '/moghamarat-al-asatiza/game-assets/events';
 
 export const REGION_ENEMIES: Record<string, Enemy[]> = {
   forest: [
@@ -515,6 +517,7 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
       title: 'مسافر تائه',
       description: 'بين الأشجار العملاقة، تسمع صوت أنين خافت. تقترب لتجد مسافراً جريحاً يستند إلى شجرة، وسيفه مكسور بجانبه. يرفع رأسه ويقول: "ساعدني... وسأكون لك حليفاً مخلصاً".',
       emoji: '🤕',
+      image: `${EVT}/f1_encounter.png`,
       options: [
         {
           text: '🤝 مساعدته ومداواة جراحه',
@@ -550,6 +553,7 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
       title: 'كمين في الغابة!',
       description: 'فجأة، تسمع صوت حشرات عملاقة تقترب! العنكبوت العملاق ينزل من شجرة ويحاصرك في شبكته!',
       emoji: '🕷️',
+      image: `${IMG}/forest_spider.png`,
       options: [
         {
           text: '⚔️ القتال المباشر',
@@ -594,6 +598,7 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
       title: 'لغز الشجرة الحكيمة',
       description: 'تجد شجرة عملاقة بنقوش متوهجة على جذعها. صوت عجوز يأتي من داخلها: "أجب عن لغزي لتحصل على المعرفة والذهب. ما الشيء الذي كلما أخذت منه كبر؟"',
       emoji: '🧩',
+      image: `${EVT}/f3_puzzle.png`,
       options: [
         {
           text: '🧠 الحفرة (الإجابة الصحيحة)',
@@ -623,6 +628,7 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
       title: 'تاجر الأسرار',
       description: 'في زقاق مضاء بالشموع، يقف تاجر غامض خلف طاولة مليئة بالآيتمات السحرية. يقول: "عندي ما تحتاجه يا مسافر... بثمن مناسب طبعاً!"',
       emoji: '🏪',
+      image: `${EVT}/c1_merchant.png`,
       options: [
         {
           text: '🧴 جرعة الشفاء (15 ذهب) - تستعيد 30 صحة',
@@ -654,6 +660,7 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
       title: 'نور في السوق',
       description: 'في سوق المدينة الصاخب، تلمح نور تجلس في زاوية هادئة تعالج جرحى الفقراء مجاناً. ترفع رأسها وتبتسم: "أهلاً بك يا مسافر. هل تبحث عن شفاء أم عن رفيق؟"',
       emoji: '✨',
+      image: `${EVT}/c2_encounter.png`,
       options: [
         {
           text: '🤝 مساعدتها في علاج الجرحى',
@@ -689,6 +696,7 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
       title: 'لصوص الطريق!',
       description: 'في زقاق مظلم، يظهر ثلاثة لصوص يحيطون بك! قائدهم يتقدم بسكين: "أعطنا ذهبك أو نأخذه بالقوة!"',
       emoji: '🦹',
+      image: `${EVT}/c3_battle.png`,
       options: [
         {
           text: '⚔️ القتال المباشر',
@@ -726,6 +734,7 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
       title: 'حادث مضحك في السوق',
       description: 'بينما تمشي في السوق، تعثرت ببرميل عجة طائر! البرميل ينقلب وتطير العجة في الهواء وتسقط على رأس تاجر متجهم! التاجر ينظر إليك بغضب... وعجته على رأسه تبدو كقبعة مضحكة!',
       emoji: '😂',
+      image: `${EVT}/c4_comedy.png`,
       options: [
         {
           text: '😄 الاعتذار بابتسامة وعرض تعويضه',
@@ -757,6 +766,7 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
       title: 'مفترق الجبال',
       description: 'تصل إلى مفترق طرق في قلب الجبال. الطريق الأيسر يؤدي إلى كهف مظلم تسمع منه أصوات غريبة. الطريق الأيمن يمر فوق جسر حجري قديم فوق هوة سحيقة.',
       emoji: '⛰️',
+      image: `${EVT}/m1_crossroads.png`,
       options: [
         {
           text: '🕳️ دخول الكهف المظلم',
@@ -794,6 +804,7 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
       title: 'العملاق الحجري!',
       description: 'الأرض ترتجف تحت قدميك! من خلف الصخور يظهر عملاق حجري ضخم بعيون متوهجة! يزمجر: "لا أحد يعبر جبالي!"',
       emoji: '🗿',
+      image: `${IMG}/mountain_giant.png`,
       options: [
         {
           text: '⚔️ القتال المباشر',
@@ -831,6 +842,7 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
       title: 'لغز الكهف القديم',
       description: 'على جدار الكهف نقوش قديمة: "أنا بلا أرجل وأتسلل، بلا فم وأهمس، بلا يدين وألمس. ما أنا؟"',
       emoji: '🧩',
+      image: `${EVT}/m3_puzzle.png`,
       options: [
         {
           text: '🌬️ الريح (الإجابة الصحيحة)',
@@ -860,6 +872,7 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
       title: 'واحة أم سراب؟',
       description: 'في قلب الصحراء الحارقة، ترى واحة في الأفق. لكنك سمعت أن الصحراء تخدع العيون. الطريقان أمامك: نحو الواحة أو نحو صخور مظللة واضحة.',
       emoji: '🏜️',
+      image: `${EVT}/d1_crossroads.png`,
       options: [
         {
           text: '🏝️ التوجه نحو الواحة',
@@ -886,6 +899,7 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
       title: 'مومياء الغضب!',
       description: 'من تحت الرمال تظهر مومياء بعيون حمراء متوهجة! تزمجر بلغة قديمة: "الذي يدخل أرضي يدفع الثمن!"',
       emoji: '🧟',
+      image: `${IMG}/desert_mummy.png`,
       options: [
         {
           text: '⚔️ القتال المباشر',
@@ -923,6 +937,7 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
       title: 'لغز صحراء النسيان',
       description: '⚠️ لغز رئيسي! عمود حجري عليه رموز: "أنا مدينة بلا شوارع، بلا بيوت، بلا أشجار. لكني مليئة بالسكان. ما أنا؟" إذا أخطأت ستفقد معرفة!',
       emoji: '🧩',
+      image: `${EVT}/d3_puzzle.png`,
       options: [
         {
           text: '🗺️ الخريطة (الإجابة الصحيحة)',
@@ -949,6 +964,7 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
       title: 'جمل ثرثار',
       description: 'بينما تمشي في الصحراء، يقف جمل في طريقك ويرفض التحرك. ثم يفتح فمه ويقول بصوت بشري: "ما شاء الله عليك، تعبان! قوللي نكتة وأعبرك!"',
       emoji: '🐪',
+      image: `${EVT}/d4_comedy.png`,
       options: [
         {
           text: '😄 قول نكتة',
@@ -978,6 +994,7 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
       title: 'حكيم الأعماق',
       description: 'في قاع البحر الفضي، تجد كائناً عجوزاً يجلس على صخرة مرجانية يحيطه ضوء أزرق. يفتح عينيه ببطء: "يا مسافر فوق الماء... أنا أعرف ما تبحث عنه. لكن كل معرفة لها ثمن."',
       emoji: '🧜',
+      image: `${EVT}/o1_encounter.png`,
       options: [
         {
           text: '📚 طلب المعرفة عن الكتاب الأعظم',
@@ -1013,6 +1030,7 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
       title: 'أخطبوط العمق!',
       description: 'من الظلام العميق، تظهر أذرع ضخمة! أخطبوط عملاق بأعين حمراء يحاصرك! كل ذراع أقوى من السيف!',
       emoji: '🐙',
+      image: `${IMG}/ocean_octopus.png`,
       options: [
         {
           text: '⚔️ القتال المباشر',
@@ -1048,6 +1066,7 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
       title: 'لغز المحارة السحرية',
       description: 'محارة عملاقة تطفو أمامك. تفتح ببطء وتقول بصوت صدى: "أنا أملك لؤلؤة الحكمة. أجب عن لغزي: ما الشيء الذي يملك فماً لكنه لا يتكلم، وسريراً لكنه لا ينام؟"',
       emoji: '🐚',
+      image: `${EVT}/o3_puzzle.png`,
       options: [
         {
           text: '🌊 النهر (الإجابة الصحيحة)',
@@ -1077,6 +1096,7 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
       title: 'حارس البوابات!',
       description: 'تقف أمام بوابات قلعة الظلام الضخمة. من الظلام يظهر حارس بوابات عملاق بعيون ملتهبة! يزمجر: "لا يدخل هذه القلعة أحد... حياً!"',
       emoji: '👹',
+      image: `${IMG}/castle_guardian.png`,
       options: [
         {
           text: '⚔️ القتال المباشر',
@@ -1112,6 +1132,7 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
       title: 'فارس الظلام!',
       description: 'في صالة القلعة المظلمة، يظهر فارس يرتدي درعاً سوداء كالليل! سيفه يشع بضوء أسود. يقول بصوت خافت: "هذا آخر ما ترى..."',
       emoji: '🖤',
+      image: `${IMG}/castle_dark_knight.png`,
       options: [
         {
           text: '⚔️ القتال المباشر',
@@ -1147,6 +1168,7 @@ export const REGION_EVENTS: Record<string, GameEvent[]> = {
       title: 'المعركة النهائية - حارس الكتاب!',
       description: 'أخيراً... تقف أمام حارس الكتاب الأعظم! مخلوق ضخم من ظلام محض بعيون حمراء كالجمر. خلفه يتوهج الكتاب الأعظم بضوء ذهبي. يزمجر: "لن تأخذ الكتاب... ما دمت حياً!"',
       emoji: '👿',
+      image: `${IMG}/castle_final_boss.png`,
       options: [
         {
           text: '⚔️ الهجوم النهائي!',

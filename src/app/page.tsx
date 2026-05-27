@@ -1313,7 +1313,18 @@ export default function GamePage() {
                 {/* Non-battle event header */}
                 {currentEvent.type !== 'battle' && (
                   <div className="text-center mb-3">
-                    <span className="text-4xl block mb-2">{currentEvent.emoji}</span>
+                    {currentEvent.image ? (
+                      <div className="event-image-container mb-3 rounded-xl overflow-hidden" style={{ background: 'rgba(0,0,0,0.3)', minHeight: '160px' }}>
+                        <img
+                          src={currentEvent.image}
+                          alt={currentEvent.title}
+                          className="w-full object-cover"
+                          style={{ maxHeight: '220px', objectPosition: 'center top' }}
+                        />
+                      </div>
+                    ) : (
+                      <span className="text-4xl block mb-2">{currentEvent.emoji}</span>
+                    )}
                     <h3 className="text-xl font-bold" style={{ color: '#8b7355' }}>{currentEvent.title}</h3>
                     <span className="text-xs px-3 py-1 rounded-full inline-block mt-1" style={{ background: '#2a2a3e', color: '#7a7a8a' }}>
                       {currentEvent.type === 'puzzle' ? '🧩 لغز' :
